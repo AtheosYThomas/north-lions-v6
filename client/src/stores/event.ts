@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { functions } from '../firebase';
 import { httpsCallable } from 'firebase/functions';
-import type { Event } from '../../../shared/types';
+import type { Event } from 'shared/types';
 
 export const useEventStore = defineStore('event', () => {
   const events = ref<Event[]>([]);
