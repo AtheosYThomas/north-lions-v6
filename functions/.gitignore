@@ -1,0 +1,6 @@
+
+# Compiled TypeScript code
+lib/
+
+# TypeScript definitions
+*.d.ts

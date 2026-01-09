@@ -1,0 +1,18 @@
+
+> client@0.0.0 dev
+> vite
+
+
+  VITE v7.3.1  ready in 395 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+3:56:47 AM [vite] .env changed, restarting server...
+3:56:47 AM [vite] server restarted.
+npm error Lifecycle script `dev` failed with error:
+npm error code 143
+npm error path /app/client
+npm error workspace client@0.0.0
+npm error location /app/client
+npm error command failed
+npm error command sh -c vite

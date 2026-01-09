@@ -1,0 +1,14 @@
+{
+  "name": "v6-monorepo",
+  "private": true,
+  "workspaces": [
+    "client",
+    "functions",
+    "shared"
+  ],
+  "scripts": {
+    "dev:client": "npm run dev -w client",
+    "build:client": "npm run build -w client",
+    "build:functions": "npm run build -w functions"
+  }
+}
