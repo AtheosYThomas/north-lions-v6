@@ -1,11 +1,15 @@
 
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { auth, db } from '../firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import type { Member } from 'shared/types';
 
 export const useUserStore = defineStore('user', () => {
   const currentUser = ref<Member | null>(null);
   const isAuthenticated = ref(false);
+  const isLoading = ref(true);
 
   function setUser(user: Member) {
     currentUser.value = user;
@@ -17,5 +21,43 @@ export const useUserStore = defineStore('user', () => {
     isAuthenticated.value = false;
   }
 
-  return { currentUser, isAuthenticated, setUser, clearUser };
+  const initPromise = ref<Promise<void> | null>(null);
+
+  function initAuth() {
+    if (initPromise.value) return initPromise.value;
+
+    initPromise.value = new Promise((resolve) => {
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        isLoading.value = true;
+        if (user) {
+          try {
+            const docRef = doc(db, 'members', user.uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+              setUser({ id: user.uid, ...docSnap.data() } as Member);
+            } else {
+              console.warn('User authenticated but no member profile found.');
+              clearUser();
+            }
+          } catch (error) {
+            console.error('Error fetching member profile:', error);
+            clearUser();
+          }
+        } else {
+          clearUser();
+        }
+        isLoading.value = false;
+        resolve();
+        // We don't unsubscribe here because we want to listen for future changes
+      });
+    });
+    return initPromise.value;
+  }
+
+  async function logout() {
+    await signOut(auth);
+    clearUser();
+  }
+
+  return { currentUser, isAuthenticated, isLoading, setUser, clearUser, initAuth, logout };
 });
