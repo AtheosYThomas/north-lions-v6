@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { Event } from '../../shared/types';
+import { Event } from 'shared/types';
 
 // Helper to check admin role
 // Note: This logic duplicates what's in firestore.rules but is good for backend validation

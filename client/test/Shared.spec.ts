@@ -1,6 +1,6 @@
 
 import { describe, it, expect } from 'vitest';
-import type { Member, Event, Registration } from '../shared/types';
+import type { Member, Event, Registration } from 'shared/types';
 
 describe('Shared Types', () => {
   it('should validate Member interface', () => {
