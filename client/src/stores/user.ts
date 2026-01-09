@@ -27,7 +27,7 @@ export const useUserStore = defineStore('user', () => {
     if (initPromise.value) return initPromise.value;
 
     initPromise.value = new Promise((resolve) => {
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      onAuthStateChanged(auth, async (user) => {
         isLoading.value = true;
         if (user) {
           try {
@@ -36,7 +36,13 @@ export const useUserStore = defineStore('user', () => {
             if (docSnap.exists()) {
               setUser({ id: user.uid, ...docSnap.data() } as Member);
             } else {
-              console.warn('User authenticated but no member profile found.');
+              // Handle new user case where Firestore doc might be created by Functions slightly later
+              // or just allow basic auth state but user needs to register
+              console.warn('User authenticated but no member profile found yet.');
+              // We keep the user logged in (isAuthenticated = true) but currentUser might be null or partial
+              // However, current logic in setUser requires Member
+              // Let's retry once if needed or just clear. 
+              // Better: For now clear, but in production we might want a retry loop.
               clearUser();
             }
           } catch (error) {

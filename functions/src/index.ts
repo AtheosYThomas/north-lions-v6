@@ -7,8 +7,9 @@ admin.initializeApp();
 import { verifyLineToken } from './auth';
 import { initDatabase } from './init';
 import { getEvents, getEvent, createEvent, updateEvent } from './events';
+import { registerMember } from './members';
 
-export { verifyLineToken, initDatabase, getEvents, getEvent, createEvent, updateEvent };
+export { verifyLineToken, initDatabase, getEvents, getEvent, createEvent, updateEvent, registerMember };
 
 // Export helloWorld for legacy test compatibility
 export const hello = functions.https.onRequest((request, response) => {

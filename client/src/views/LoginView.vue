@@ -67,12 +67,16 @@ const handleLineLogin = async () => {
     const result = await verifyLineToken({ lineAccessToken: accessToken });
     
     // isNewUser can be used to redirect to onboarding
-    const { token } = result.data as { token: string, isNewUser: boolean };
+    const { token, isNewUser } = result.data as { token: string, isNewUser: boolean };
 
     const auth = getAuth();
     await signInWithCustomToken(auth, token);
 
-    router.push('/');
+    if (isNewUser) {
+      router.push('/register');
+    } else {
+      router.push('/');
+    }
     
   } catch (err: any) {
     console.error(err);

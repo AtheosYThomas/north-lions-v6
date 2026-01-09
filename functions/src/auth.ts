@@ -48,20 +48,20 @@ export const verifyLineToken = functions.https.onCall(async (data: any, context)
       uid = userRecord.uid;
       isNewUser = true;
 
-      // Create new Member document
+      // Create new Member document with pending status
       const newMember: Member = {
         id: uid,
-        name: displayName,
+        name: displayName, // Use LINE display name as initial placeholder
         contact: {
           mobile: '',
           email: email || '',
           lineUserId: lineUserId,
         },
-        organization: { role: 'member', title: '會員' },
+        organization: { role: 'member', title: '' },
         personal: { joinDate: admin.firestore.FieldValue.serverTimestamp() as any },
         company: { name: '', taxId: '' },
         emergency: { contactName: '', relationship: '', phone: '' },
-        status: { activeStatus: 'active', membershipType: 'regular' },
+        status: { activeStatus: 'pending_registration', membershipType: 'regular' },
         system: { role: 'member', pushConsent: false },
         stats: { totalDonation: 0, donationCount: 0 },
       };
