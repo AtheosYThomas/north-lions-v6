@@ -30,7 +30,7 @@ export interface Member {
     phone: string;
   };
   status: {
-    activeStatus: 'active' | 'suspended' | 'resigned'; // 活躍/休會/退會
+    activeStatus: 'active' | 'suspended' | 'resigned' | 'pending_registration'; // 活躍/休會/退會/註冊中
     membershipType: 'charter' | 'regular' | 'honorary' | 'potential'; // 創會/正式/榮譽/潛在
   };
   system: {

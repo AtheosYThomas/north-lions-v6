@@ -27,11 +27,17 @@ const router = createRouter({
       name: 'event-detail',
       component: () => import('../views/EventDetailView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('../views/RegisterView.vue'),
+      meta: { requiresAuth: true } 
     }
   ]
 });
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const store = useUserStore();
   
   // Wait for initial auth check to complete
@@ -41,9 +47,27 @@ router.beforeEach(async (to, from, next) => {
 
   if (to.meta.requiresAuth && !store.isAuthenticated) {
     next({ name: 'login' });
-  } else {
-    next();
+    return;
   }
+
+  // Check registration status
+  if (store.isAuthenticated) {
+    const isPending = store.currentUser?.status?.activeStatus === 'pending_registration';
+    
+    // If pending and not going to register page, redirect to register
+    if (isPending && to.name !== 'register') {
+      next({ name: 'register' });
+      return;
+    }
+
+    // If active and trying to go to register page, redirect to home
+    if (!isPending && to.name === 'register') {
+      next({ name: 'dashboard' });
+      return;
+    }
+  }
+
+  next();
 });
 
 export default router;
