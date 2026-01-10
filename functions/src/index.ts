@@ -7,11 +7,7 @@ admin.initializeApp();
 import { verifyLineToken } from './auth';
 import { initDatabase } from './init';
 import { getEvents, getEvent, createEvent, updateEvent } from './events';
-<<<<<<< HEAD
-import { registerMember, getMembers } from './members';
-=======
 import { registerMember, getMembers, updateMemberStatus } from './members';
->>>>>>> 3563e96 (Implement Admin features for Editing and remaining User features)
 import { getAnnouncements, getAnnouncement, createAnnouncement, updateAnnouncement } from './announcements';
 import { registerEvent, cancelRegistration, getMyRegistrations, getEventRegistrations } from './registrations';
 import { getDonations, createDonation } from './donations';
@@ -27,10 +23,7 @@ export {
   updateEvent, 
   registerMember,
   getMembers,
-<<<<<<< HEAD
-=======
   updateMemberStatus,
->>>>>>> 3563e96 (Implement Admin features for Editing and remaining User features)
   getAnnouncements,
   getAnnouncement,
   createAnnouncement,

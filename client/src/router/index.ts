@@ -93,8 +93,6 @@ const router = createRouter({
       name: 'admin-member-list',
       component: () => import('../views/admin/MemberListView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
-<<<<<<< HEAD
-=======
     },
     {
       path: '/admin/members/:id',
@@ -113,7 +111,6 @@ const router = createRouter({
       name: 'admin-create-payment',
       component: () => import('../views/admin/CreatePaymentView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
->>>>>>> 3563e96 (Implement Admin features for Editing and remaining User features)
     }
   ]
 });

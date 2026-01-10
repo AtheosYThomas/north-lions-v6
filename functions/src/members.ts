@@ -68,8 +68,6 @@ export const getMembers = functions.https.onCall(async (data: any, context: any)
         throw new functions.https.HttpsError('internal', 'Unable to fetch members.', error);
     }
 });
-<<<<<<< HEAD
-=======
 
 export const updateMemberStatus = functions.https.onCall(async (data: any, context: any) => {
     if (!context.auth) {
@@ -119,4 +117,3 @@ export const updateMemberStatus = functions.https.onCall(async (data: any, conte
         throw new functions.https.HttpsError('internal', 'Unable to update member.', error);
     }
 });
->>>>>>> 3563e96 (Implement Admin features for Editing and remaining User features)
