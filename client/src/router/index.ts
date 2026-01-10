@@ -77,9 +77,21 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
+      path: '/admin/events/:id/registrations',
+      name: 'admin-event-registrations',
+      component: () => import('../views/admin/EventRegistrationsView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
       path: '/admin/announcements/new',
       name: 'admin-create-announcement',
       component: () => import('../views/admin/CreateAnnouncementView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/members',
+      name: 'admin-member-list',
+      component: () => import('../views/admin/MemberListView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
     }
   ]

@@ -172,3 +172,45 @@ export const getMyRegistrations = functions.https.onCall(async (data: any, conte
     throw new functions.https.HttpsError('internal', 'Unable to fetch registrations.', error);
   }
 });
+
+// Admin: Get all registrations for an event
+export const getEventRegistrations = functions.https.onCall(async (data: any, context: any) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated.');
+    }
+
+    const db = admin.firestore();
+    const callerDoc = await db.collection('members').doc(context.auth.uid).get();
+    const callerRole = callerDoc.data()?.system?.role;
+
+    if (callerRole !== 'admin') {
+         throw new functions.https.HttpsError('permission-denied', 'Only admins can view event registrations.');
+    }
+
+    const { eventId } = data;
+    if (!eventId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Event ID is required.');
+    }
+
+    try {
+        const snapshot = await db.collection('registrations')
+            .where('info.eventId', '==', eventId)
+            .get();
+        
+        // Enrich data with member names
+        const registrations = await Promise.all(snapshot.docs.map(async (doc) => {
+            const data = doc.data() as Registration;
+            const memberDoc = await db.collection('members').doc(data.info.memberId).get();
+            const memberName = memberDoc.exists ? memberDoc.data()?.name : 'Unknown';
+            return { 
+                id: doc.id, 
+                ...data,
+                memberName // Add helper field for frontend
+            };
+        }));
+        
+        return { registrations };
+    } catch (error) {
+        throw new functions.https.HttpsError('internal', 'Unable to fetch event registrations.', error);
+    }
+});
