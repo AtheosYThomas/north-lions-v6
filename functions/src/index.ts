@@ -7,9 +7,9 @@ admin.initializeApp();
 import { verifyLineToken } from './auth';
 import { initDatabase } from './init';
 import { getEvents, getEvent, createEvent, updateEvent } from './events';
-import { registerMember } from './members';
+import { registerMember, getMembers } from './members';
 import { getAnnouncements, getAnnouncement, createAnnouncement, updateAnnouncement } from './announcements';
-import { registerEvent, cancelRegistration, getMyRegistrations } from './registrations';
+import { registerEvent, cancelRegistration, getMyRegistrations, getEventRegistrations } from './registrations';
 import { getDonations, createDonation } from './donations';
 import { getPayments, createPayment } from './payments';
 import { updateProfile } from './profile';
@@ -22,6 +22,7 @@ export {
   createEvent, 
   updateEvent, 
   registerMember,
+  getMembers,
   getAnnouncements,
   getAnnouncement,
   createAnnouncement,
@@ -29,6 +30,7 @@ export {
   registerEvent,
   cancelRegistration,
   getMyRegistrations,
+  getEventRegistrations,
   getDonations,
   createDonation,
   getPayments,

@@ -46,3 +46,25 @@ export const registerMember = functions.https.onCall(async (data: any, context: 
     throw new functions.https.HttpsError('internal', 'Failed to register member.');
   }
 });
+
+export const getMembers = functions.https.onCall(async (data: any, context: any) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated.');
+    }
+
+    const db = admin.firestore();
+    const callerDoc = await db.collection('members').doc(context.auth.uid).get();
+    const callerRole = callerDoc.data()?.system?.role;
+
+    if (callerRole !== 'admin') {
+         throw new functions.https.HttpsError('permission-denied', 'Only admins can view member list.');
+    }
+
+    try {
+        const snapshot = await db.collection('members').orderBy('name').get();
+        const members = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return { members };
+    } catch (error) {
+        throw new functions.https.HttpsError('internal', 'Unable to fetch members.', error);
+    }
+});

@@ -30,6 +30,30 @@
             >
               公告消息
             </router-link>
+            
+            <!-- Admin Menu -->
+            <div v-if="isAdmin" class="relative ml-3 flex items-center">
+                <span class="text-sm font-medium text-gray-500 mr-2">管理:</span>
+                <router-link 
+                  to="/admin/members" 
+                  class="text-gray-500 hover:text-gray-700 text-sm font-medium mr-3"
+                >
+                  會員
+                </router-link>
+                <router-link 
+                  to="/admin/events/new" 
+                  class="text-gray-500 hover:text-gray-700 text-sm font-medium mr-3"
+                >
+                  新增活動
+                </router-link>
+                <router-link 
+                  to="/admin/announcements/new" 
+                  class="text-gray-500 hover:text-gray-700 text-sm font-medium"
+                >
+                  發布公告
+                </router-link>
+            </div>
+
           </div>
         </div>
         <div class="flex items-center">
@@ -60,11 +84,16 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useUserStore } from '../stores/user';
 import { useRouter } from 'vue-router';
 
 const userStore = useUserStore();
 const router = useRouter();
+
+const isAdmin = computed(() => {
+    return userStore.currentUser?.system?.role === 'admin';
+});
 
 const handleLogout = async () => {
   await userStore.logout();
