@@ -41,12 +41,48 @@ export const useEventStore = defineStore('event', () => {
     }
   }
 
+  async function registerEvent(eventId: string, details: any, needs: any) {
+    loading.value = true;
+    error.value = null;
+    try {
+      const registerFn = httpsCallable<any, { registrationId: string }>(functions, 'registerEvent');
+      await registerFn({ eventId, details, needs });
+      // Refresh event to update stats or just locally increment?
+      // For correctness, refetch
+      await fetchEvent(eventId);
+    } catch (e: any) {
+       console.error('Registration failed', e);
+       error.value = e.message || 'Registration failed';
+       throw e; // Re-throw to let UI handle it
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function cancelRegistration(registrationId: string, eventId: string) {
+    loading.value = true;
+    error.value = null;
+    try {
+      const cancelFn = httpsCallable<any, { success: boolean }>(functions, 'cancelRegistration');
+      await cancelFn({ registrationId });
+      await fetchEvent(eventId);
+    } catch (e: any) {
+      console.error('Cancellation failed', e);
+      error.value = e.message || 'Cancellation failed';
+      throw e;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     events,
     currentEvent,
     loading,
     error,
     fetchEvents,
-    fetchEvent
+    fetchEvent,
+    registerEvent,
+    cancelRegistration
   };
 });
