@@ -13,6 +13,8 @@ import { registerEvent, cancelRegistration, getMyRegistrations, getEventRegistra
 import { getDonations, createDonation } from './donations';
 import { getPayments, createPayment } from './payments';
 import { updateProfile } from './profile';
+import { lineWebhook } from './webhook';
+import { getMessageLogs } from './messages';
 
 export { 
   verifyLineToken, 
@@ -36,7 +38,9 @@ export {
   createDonation,
   getPayments,
   createPayment,
-  updateProfile
+  updateProfile,
+  lineWebhook,
+  getMessageLogs
 };
 
 // Export helloWorld for legacy test compatibility

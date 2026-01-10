@@ -111,6 +111,12 @@ const router = createRouter({
       name: 'admin-create-payment',
       component: () => import('../views/admin/CreatePaymentView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/messages',
+      name: 'admin-message-logs',
+      component: () => import('../views/admin/MessageLogView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
     }
   ]
 });
