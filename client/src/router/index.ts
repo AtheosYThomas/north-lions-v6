@@ -27,11 +27,41 @@ const router = createRouter({
       name: 'event-detail',
       component: () => import('../views/EventDetailView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('../views/RegisterView.vue'),
+      meta: { requiresAuth: true } 
+    },
+    {
+      path: '/announcements',
+      name: 'announcement-list',
+      component: () => import('../views/AnnouncementListView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/announcements/:id',
+      name: 'announcement-detail',
+      component: () => import('../views/AnnouncementDetailView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/admin/events/new',
+      name: 'admin-create-event',
+      component: () => import('../views/admin/CreateEventView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/announcements/new',
+      name: 'admin-create-announcement',
+      component: () => import('../views/admin/CreateAnnouncementView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
     }
   ]
 });
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const store = useUserStore();
   
   // Wait for initial auth check to complete
@@ -41,9 +71,27 @@ router.beforeEach(async (to, from, next) => {
 
   if (to.meta.requiresAuth && !store.isAuthenticated) {
     next({ name: 'login' });
-  } else {
-    next();
+    return;
   }
+
+  // Check registration status
+  if (store.isAuthenticated) {
+    const isPending = store.currentUser?.status?.activeStatus === 'pending_registration';
+    
+    // If pending and not going to register page, redirect to register
+    if (isPending && to.name !== 'register') {
+      next({ name: 'register' });
+      return;
+    }
+
+    // If active and trying to go to register page, redirect to home
+    if (!isPending && to.name === 'register') {
+      next({ name: 'dashboard' });
+      return;
+    }
+  }
+
+  next();
 });
 
 export default router;

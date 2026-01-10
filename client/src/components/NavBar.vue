@@ -22,6 +22,14 @@
             >
               活動列表
             </router-link>
+            <router-link 
+              v-if="userStore.isAuthenticated"
+              to="/announcements" 
+              class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              active-class="border-indigo-500 text-gray-900"
+            >
+              公告消息
+            </router-link>
           </div>
         </div>
         <div class="flex items-center">

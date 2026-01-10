@@ -7,8 +7,26 @@ admin.initializeApp();
 import { verifyLineToken } from './auth';
 import { initDatabase } from './init';
 import { getEvents, getEvent, createEvent, updateEvent } from './events';
+import { registerMember } from './members';
+import { getAnnouncements, getAnnouncement, createAnnouncement, updateAnnouncement } from './announcements';
+import { registerEvent, cancelRegistration, getMyRegistrations } from './registrations';
 
-export { verifyLineToken, initDatabase, getEvents, getEvent, createEvent, updateEvent };
+export { 
+  verifyLineToken, 
+  initDatabase, 
+  getEvents, 
+  getEvent, 
+  createEvent, 
+  updateEvent, 
+  registerMember,
+  getAnnouncements,
+  getAnnouncement,
+  createAnnouncement,
+  updateAnnouncement,
+  registerEvent,
+  cancelRegistration,
+  getMyRegistrations
+};
 
 // Export helloWorld for legacy test compatibility
 export const hello = functions.https.onRequest((request, response) => {
