@@ -44,6 +44,14 @@ onMounted(() => {
               </span>
             </dd>
           </div>
+          <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <dt class="text-sm font-medium text-gray-500">捐款總額</dt>
+            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                {{ userStore.currentUser?.stats?.totalDonation || 0 }} 元
+                <span class="text-xs text-gray-500">({{ userStore.currentUser?.stats?.donationCount || 0 }} 次)</span>
+                <router-link to="/donations" class="ml-2 text-indigo-600 hover:text-indigo-900 text-xs">查看詳情</router-link>
+            </dd>
+          </div>
         </dl>
       </div>
     </div>

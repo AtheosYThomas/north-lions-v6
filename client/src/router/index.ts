@@ -47,6 +47,30 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/donations',
+      name: 'donation-list',
+      component: () => import('../views/DonationListView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/donations/:id',
+      name: 'donation-detail',
+      component: () => import('../views/DonationDetailView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/payments',
+      name: 'payment-list',
+      component: () => import('../views/PaymentListView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('../views/ProfileView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/admin/events/new',
       name: 'admin-create-event',
       component: () => import('../views/admin/CreateEventView.vue'),
@@ -72,6 +96,15 @@ router.beforeEach(async (to, _from, next) => {
   if (to.meta.requiresAuth && !store.isAuthenticated) {
     next({ name: 'login' });
     return;
+  }
+
+  // Admin Guard
+  if (to.meta.requiresAdmin) {
+    const role = store.currentUser?.system?.role;
+    if (role !== 'admin') {
+       next({ name: 'dashboard' });
+       return;
+    }
   }
 
   // Check registration status
