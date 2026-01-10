@@ -68,3 +68,52 @@ export const getMembers = functions.https.onCall(async (data: any, context: any)
         throw new functions.https.HttpsError('internal', 'Unable to fetch members.', error);
     }
 });
+
+export const updateMemberStatus = functions.https.onCall(async (data: any, context: any) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated.');
+    }
+
+    const db = admin.firestore();
+    const callerDoc = await db.collection('members').doc(context.auth.uid).get();
+    const callerRole = callerDoc.data()?.system?.role;
+
+    if (callerRole !== 'admin') {
+         throw new functions.https.HttpsError('permission-denied', 'Only admins can update member status.');
+    }
+
+    const { memberId, status, role } = data;
+    if (!memberId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Member ID is required.');
+    }
+
+    const updates: any = {};
+    if (status) {
+        // status should be object like { activeStatus: '...' } or just the activeStatus string depending on how we want to pass it.
+        // Let's assume data.status is the activeStatus string for simplicity, or we map it.
+        // Based on DESIGN.md: status.activeStatus
+        if (typeof status === 'string') {
+             updates['status.activeStatus'] = status;
+        } else {
+             // If full object
+             if (status.activeStatus) updates['status.activeStatus'] = status.activeStatus;
+             if (status.membershipType) updates['status.membershipType'] = status.membershipType;
+        }
+    }
+    
+    if (role) {
+        // system.role
+        updates['system.role'] = role;
+    }
+    
+    if (Object.keys(updates).length === 0) {
+        return { message: 'No changes provided.' };
+    }
+
+    try {
+        await db.collection('members').doc(memberId).update(updates);
+        return { success: true };
+    } catch (error) {
+        throw new functions.https.HttpsError('internal', 'Unable to update member.', error);
+    }
+});
