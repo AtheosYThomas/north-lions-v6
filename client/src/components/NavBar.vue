@@ -48,9 +48,21 @@
                 </router-link>
                 <router-link 
                   to="/admin/announcements/new" 
-                  class="text-gray-500 hover:text-gray-700 text-sm font-medium"
+                  class="text-gray-500 hover:text-gray-700 text-sm font-medium mr-3"
                 >
                   發布公告
+                </router-link>
+                 <router-link 
+                  to="/admin/donations/new" 
+                  class="text-gray-500 hover:text-gray-700 text-sm font-medium mr-3"
+                >
+                  新增捐款
+                </router-link>
+                 <router-link 
+                  to="/admin/payments/new" 
+                  class="text-gray-500 hover:text-gray-700 text-sm font-medium"
+                >
+                  新增繳費
                 </router-link>
             </div>
 
