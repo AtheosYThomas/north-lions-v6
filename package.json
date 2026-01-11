@@ -12,5 +12,10 @@
     "build:functions": "npm run build -w functions",
     "build": "npm run build:client && npm run build:functions",
     "deploy": "npm run build && firebase deploy"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "chai": "^6.2.2",
+    "mocha": "^11.7.5"
   }
 }
