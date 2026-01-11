@@ -9,6 +9,7 @@ const route = useRoute();
 const registrations = ref<any[]>([]);
 const loading = ref(true);
 const error = ref('');
+const processingId = ref<string | null>(null);
 const eventId = route.params.id as string;
 
 const fetchRegistrations = async () => {
@@ -44,6 +45,24 @@ const formatDate = (timestamp: any) => {
     }
     return new Date(timestamp).toLocaleString('zh-TW');
 };
+
+const handleCancel = async (registrationId: string) => {
+  if (!confirm('確定要取消此報名嗎？此動作無法復原。')) {
+    return;
+  }
+
+  processingId.value = registrationId;
+  try {
+    const cancelRegistration = httpsCallable(functions, 'cancelRegistration');
+    await cancelRegistration({ registrationId });
+    // Refresh list
+    await fetchRegistrations();
+  } catch (e: any) {
+    alert(e.message || '取消失敗');
+  } finally {
+    processingId.value = null;
+  }
+};
 </script>
 
 <template>
@@ -75,6 +94,9 @@ const formatDate = (timestamp: any) => {
                   <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">狀態</th>
                   <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">付款狀態</th>
                   <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">備註</th>
+                  <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                    <span class="sr-only">操作</span>
+                  </th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200 bg-white">
@@ -103,6 +125,16 @@ const formatDate = (timestamp: any) => {
                   </td>
                   <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 max-w-xs truncate">
                     {{ reg.needs.remark || '-' }}
+                  </td>
+                  <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                    <button 
+                      v-if="reg.status.status !== 'cancelled'"
+                      @click="handleCancel(reg.id)"
+                      class="text-red-600 hover:text-red-900 disabled:opacity-50"
+                      :disabled="processingId === reg.id"
+                    >
+                      {{ processingId === reg.id ? '處理中...' : '取消' }}
+                    </button>
                   </td>
                 </tr>
                 <tr v-if="registrations.length === 0">

@@ -12,6 +12,19 @@
         <span v-else>LINE 登入</span>
       </button>
       <p v-if="error" class="text-red-500 mt-4 text-center text-sm">{{ error }}</p>
+
+      <!-- Dev Login -->
+      <div v-if="showDevLogin" class="mt-8 border-t pt-4">
+        <h2 class="text-sm font-bold text-gray-500 mb-2 text-center">開發者登入 (Local Only)</h2>
+        <input v-model="devEmail" type="email" placeholder="Email" class="w-full mb-2 px-3 py-2 border rounded text-sm" />
+        <input v-model="devPassword" type="password" placeholder="Password" class="w-full mb-2 px-3 py-2 border rounded text-sm" />
+        <button 
+          @click="handleDevLogin" 
+          class="w-full bg-gray-600 text-white font-bold py-2 px-4 rounded hover:bg-gray-700 text-sm"
+        >
+          Email 登入
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -20,13 +33,19 @@
 import { ref, onMounted } from 'vue';
 import liff from '@line/liff';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getAuth, signInWithCustomToken } from 'firebase/auth';
+import { getAuth, signInWithCustomToken, signInWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'vue-router';
-// import { useUserStore } from '../stores/user'; // TODO: Update store after login
+import { useUserStore } from '../stores/user';
 
 const loading = ref(false);
 const error = ref('');
 const router = useRouter();
+const userStore = useUserStore();
+
+// Dev Login
+const showDevLogin = import.meta.env.DEV;
+const devEmail = ref('admin@example.com');
+const devPassword = ref('password123');
 
 const LIFF_ID = import.meta.env.VITE_LIFF_ID;
 
@@ -84,6 +103,29 @@ const handleLineLogin = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const handleDevLogin = async () => {
+    loading.value = true;
+    error.value = '';
+    try {
+        const auth = getAuth();
+        await signInWithEmailAndPassword(auth, devEmail.value, devPassword.value);
+        
+        // Poll for auth state update
+        let attempts = 0;
+        while (!userStore.isAuthenticated && attempts < 20) {
+            await new Promise(r => setTimeout(r, 100));
+            attempts++;
+        }
+        
+        router.push('/');
+    } catch (err: any) {
+        console.error(err);
+        error.value = err.message || '開發者登入失敗';
+    } finally {
+        loading.value = false;
+    }
 };
 </script>
 
