@@ -127,9 +127,15 @@ export const cancelRegistration = functions.https.onCall(async (data: any, conte
 
       const registration = regDoc.data() as Registration;
 
+      // Check permissions: Owner or Admin
       if (registration.info.memberId !== userId) {
-         // TODO: Allow admin to cancel
-         throw new functions.https.HttpsError('permission-denied', 'You can only cancel your own registration.');
+         // Check if admin
+         const callerDoc = await db.collection('members').doc(userId).get();
+         const isCallerAdmin = callerDoc.exists && callerDoc.data()?.system?.role === 'admin';
+         
+         if (!isCallerAdmin) {
+            throw new functions.https.HttpsError('permission-denied', 'You can only cancel your own registration or must be an admin.');
+         }
       }
 
       if (registration.status.status === 'cancelled') {
@@ -150,6 +156,7 @@ export const cancelRegistration = functions.https.onCall(async (data: any, conte
       return { success: true };
     });
   } catch (error) {
+    if (error instanceof functions.https.HttpsError) throw error;
     throw new functions.https.HttpsError('internal', 'Cancellation failed.', error);
   }
 });
