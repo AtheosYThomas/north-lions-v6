@@ -12,7 +12,7 @@ describe('Firestore Rules', () => {
         testEnv = await initializeTestEnvironment({
             projectId: PROJECT_ID,
             firestore: {
-                rules: readFileSync('firestore.rules', 'utf8'),
+                rules: readFileSync('../firestore.rules', 'utf8'),
                 host: '127.0.0.1',
                 port: 8080
             }
