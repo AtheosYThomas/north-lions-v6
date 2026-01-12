@@ -1,4 +1,3 @@
-
 const admin = require('firebase-admin');
 const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
@@ -7,10 +6,10 @@ const { getFirestore } = require('firebase-admin/firestore');
 // Set env vars to point to emulators
 process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
 process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
-process.env.GCLOUD_PROJECT = 'demo-project';
+process.env.GCLOUD_PROJECT = 'north-lions-v6-a7757';
 
 initializeApp({
-    projectId: 'demo-project'
+    projectId: 'north-lions-v6-a7757'
 });
 
 const db = getFirestore();
@@ -30,7 +29,55 @@ async function runVerification() {
         await setupProfile(adminUser.uid, 'admin');
         await setupProfile(regularUser.uid, 'member');
 
-        // 3. Test Announcement Creation (Admin Only)
+        // 3. Setup Event and Registration
+        console.log('Setting up Event and Registration...');
+        const eventId = 'event1';
+        await db.collection('events').doc(eventId).set({
+            name: 'Test Event',
+            time: { 
+                date: new Date(),
+                start: new Date(),
+                end: new Date(),
+                deadline: new Date(Date.now() + 86400000) // tomorrow
+            },
+            details: {
+                location: 'Taipei',
+                cost: 0,
+                quota: 100,
+                isPaidEvent: false
+            },
+            status: {
+                eventStatus: 'published',
+                registrationStatus: 'open',
+                pushStatus: 'none'
+            },
+            stats: { registeredCount: 1 },
+            publishing: {
+                publisherId: adminUser.uid,
+                target: ['all']
+            }
+        });
+
+        // Add a registration for the regular user
+        const regId = 'reg1';
+        await db.collection('registrations').doc(regId).set({
+            info: {
+                memberId: regularUser.uid,
+                eventId: eventId,
+                timestamp: new Date()
+            },
+            details: {
+                adultCount: 1,
+                childCount: 0
+            },
+            needs: { remark: 'Initial Remark' },
+            status: {
+                status: 'registered',
+                paymentStatus: 'unpaid'
+            }
+        });
+
+        // 4. Test Announcement Creation (Admin Only)
         console.log('\n--- Testing Announcement Creation ---');
         // Note: admin SDK bypasses rules, so we can't test RULES directly with Admin SDK.
         // To test rules, we need the Client SDK or the Rules Test Library.
