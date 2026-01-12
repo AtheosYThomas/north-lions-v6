@@ -8,4 +8,6 @@ module.exports = {
   transform: {
     ...tsJestTransformCfg,
   },
+  testMatch: ["**/?(*.)+(spec|test).ts", "**/?(*.)+(spec|test).tsx"],
+  testPathIgnorePatterns: ["<rootDir>/lib/"]
 };
