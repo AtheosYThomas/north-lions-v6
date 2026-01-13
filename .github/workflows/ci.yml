@@ -1,0 +1,33 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: [ "master" ]  # 配合您目前的 master 分支
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x] # 測試主流 LTS 版本
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm' # 自動啟用 npm 快取，加快建置速度
+        
+    - name: Install dependencies
+      run: npm ci # 使用 ci 指令確保與 package-lock.json 完全一致
+      
+    - name: Run scripts check
+      run: npm run build --if-present # 如果有 build script 就跑，沒有就跳過
+
+    - name: Run tests
+      run: npm test --if-present # 如果有 test script 就跑
