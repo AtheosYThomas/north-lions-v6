@@ -1,33 +1,64 @@
-name: Node.js CI
+name: Monorepo CI
 
 on:
   push:
-    branches: [ "master" ]  # 配合您目前的 master 分支
+    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  client-check:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        node-version: [20.x, 22.x] # 移除 18.x，加入 22.x（配合 Vite 要求）
-
+        node-version: [20.x, 22.x]
+    defaults:
+      run:
+        working-directory: ./client
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm' # 自動啟用 npm 快取，加快建置速度
-        
-    - name: Install dependencies
-      run: npm ci # 使用 ci 指令確保與 package-lock.json 完全一致
-      
-    - name: Run scripts check
-      run: npm run build --if-present # 如果有 build script 就跑，沒有就跳過
+      - uses: actions/checkout@v4
 
-    - name: Run tests
-      run: npm test --if-present # 如果有 test script 就跑
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install Client Dependencies
+        run: npm ci
+
+      - name: Build Client
+        run: npm run build --if-present
+
+      - name: Test Client
+        run: npm test --if-present
+
+  functions-check:
+    runs-on: ubuntu-latest
+    if: hashFiles('functions/package.json') != ''
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    defaults:
+      run:
+        working-directory: ./functions
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install Functions Dependencies
+        run: npm ci
+        
+      - name: Lint/Build Functions
+        run: npm run build --if-present
+        
+      - name: Test Functions
+        run: npm test --if-present
