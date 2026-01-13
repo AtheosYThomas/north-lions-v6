@@ -91,6 +91,13 @@ const handleLineLogin = async () => {
     const auth = getAuth();
     await signInWithCustomToken(auth, token);
 
+    // Ensure user store finishes initializing (fetching profile) before navigation
+    try {
+      await userStore.initAuth();
+    } catch (e) {
+      console.warn('initAuth failed after login', e);
+    }
+
     if (isNewUser) {
       router.push('/register');
     } else {
@@ -112,13 +119,12 @@ const handleDevLogin = async () => {
         const auth = getAuth();
         await signInWithEmailAndPassword(auth, devEmail.value, devPassword.value);
         
-        // Poll for auth state update
-        let attempts = 0;
-        while (!userStore.isAuthenticated && attempts < 20) {
-            await new Promise(r => setTimeout(r, 100));
-            attempts++;
+        // Wait for user store to initialize after sign-in
+        try {
+          await userStore.initAuth();
+        } catch (e) {
+          console.warn('initAuth failed after dev login', e);
         }
-        
         router.push('/');
     } catch (err: any) {
         console.error(err);
