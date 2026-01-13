@@ -30,24 +30,30 @@ export const useUserStore = defineStore('user', () => {
       onAuthStateChanged(auth, async (user) => {
         isLoading.value = true;
         if (user) {
+          // Mark as authenticated as soon as Firebase auth reports a user
+          isAuthenticated.value = true;
           try {
             const docRef = doc(db, 'members', user.uid);
-            const docSnap = await getDoc(docRef);
+            // Try a few times because backend Functions may create the profile shortly after auth
+            let docSnap = await getDoc(docRef);
+            let attempts = 0;
+            while (!docSnap.exists() && attempts < 3) {
+              // small backoff
+              await new Promise(r => setTimeout(r, 500));
+              docSnap = await getDoc(docRef);
+              attempts++;
+            }
+
             if (docSnap.exists()) {
               setUser({ id: user.uid, ...docSnap.data() } as Member);
             } else {
-              // Handle new user case where Firestore doc might be created by Functions slightly later
-              // or just allow basic auth state but user needs to register
-              console.warn('User authenticated but no member profile found yet.');
-              // We keep the user logged in (isAuthenticated = true) but currentUser might be null or partial
-              // However, current logic in setUser requires Member
-              // Let's retry once if needed or just clear. 
-              // Better: For now clear, but in production we might want a retry loop.
-              clearUser();
+              // Member profile still not found. Keep the auth state (isAuthenticated=true)
+              // but leave currentUser null so UI can treat this as a user that needs registration.
+              console.warn('User authenticated but no member profile found after retries.');
             }
           } catch (error) {
             console.error('Error fetching member profile:', error);
-            clearUser();
+            // Don't clear overall auth; keep user authenticated but without profile
           }
         } else {
           clearUser();
