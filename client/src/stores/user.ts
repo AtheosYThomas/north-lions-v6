@@ -56,6 +56,7 @@ export const useUserStore = defineStore('user', () => {
             // Don't clear overall auth; keep user authenticated but without profile
           }
         } else {
+          // User signed out
           clearUser();
         }
         isLoading.value = false;
