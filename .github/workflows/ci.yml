@@ -37,7 +37,6 @@ jobs:
 
   functions-check:
     runs-on: ubuntu-latest
-    if: hashFiles('functions/package.json') != ''
     strategy:
       matrix:
         node-version: [18.x, 20.x]
