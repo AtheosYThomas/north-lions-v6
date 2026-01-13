@@ -5,3 +5,15 @@ coverage/
 .env
 .env.local
 .firebaserc
+
+# Temp logs and test artifacts
+*.log
+playwright_screenshots/
+playwright_token.txt
+e2e_full_connectivity_output.txt
+scripts/client-dev.log
+scripts/e2e-output.log
+scripts/playwright_output.txt
+scripts/run_callable_test.js
+scripts/run_e2e.ps1
+scripts/seed_*.js
