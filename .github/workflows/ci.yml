@@ -1,4 +1,4 @@
-name: Monorepo CI
+name: Node.js CI
 
 on:
   push:
@@ -8,56 +8,27 @@ on:
   workflow_dispatch:
 
 jobs:
-  client-check:
+  build:
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
         node-version: [20.x, 22.x]
-    defaults:
-      run:
-        working-directory: ./client
+
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-          cache-dependency-path: client/package-lock.json
-
-      - name: Install Client Dependencies
-        run: npm ci
-
-      - name: Build Client
-        run: npm run build --if-present
-
-      - name: Test Client
-        run: npm test --if-present
-
-  functions-check:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x]
-    defaults:
-      run:
-        working-directory: ./functions
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-          cache-dependency-path: functions/package-lock.json
-
-      - name: Install Functions Dependencies
-        run: npm ci
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
         
-      - name: Lint/Build Functions
-        run: npm run build --if-present
-        
-      - name: Test Functions
-        run: npm test --if-present
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run scripts check
+      run: npm run build --if-present
+
+    - name: Run tests
+      run: npm test --if-present
