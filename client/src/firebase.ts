@@ -19,9 +19,13 @@ const db = getFirestore(app);
 const functions = getFunctions(app);
 
 if (location.hostname === 'localhost') {
-  connectAuthEmulator(auth, 'http://localhost:9099');
-  connectFirestoreEmulator(db, 'localhost', 8080);
-  connectFunctionsEmulator(functions, 'localhost', 5001);
+  const AUTH_EMULATOR_HOST = import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_HOST || 'localhost:9099';
+  const FIRESTORE_EMULATOR_HOST = Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT || 8081);
+  const FUNCTIONS_EMULATOR_PORT = Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5002);
+
+  connectAuthEmulator(auth, `http://${AUTH_EMULATOR_HOST}`);
+  connectFirestoreEmulator(db, 'localhost', FIRESTORE_EMULATOR_HOST);
+  connectFunctionsEmulator(functions, 'localhost', FUNCTIONS_EMULATOR_PORT);
 }
 
 export { auth, db, functions };

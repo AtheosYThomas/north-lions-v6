@@ -1,6 +1,8 @@
 
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
+import * as util from 'util';
 import { Registration, Event } from 'shared/types';
 
 // Ensure Firebase Admin is initialized (if not already)
@@ -8,7 +10,47 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
+function debugContext(context: any, label = 'context') {
+  try {
+    console.log(`DEBUG ${label} typeof/ctor`, { typeof: typeof context, constructor: context?.constructor?.name || null });
+    try {
+      console.log(`DEBUG ${label} util.inspect`, util.inspect(context, { showHidden: true, depth: 5 }));
+    } catch (e) {
+      console.log(`DEBUG ${label} util.inspect failed`, e);
+    }
+
+    try {
+      const names = Object.getOwnPropertyNames(context || {});
+      const keys = Object.keys(context || {});
+      const symbols = Object.getOwnPropertySymbols(context || {});
+      const descriptors = Object.getOwnPropertyDescriptors(context || {});
+      const proto = Object.getPrototypeOf(context || {});
+      console.log(`DEBUG ${label} props`, JSON.stringify({ names, keys, symbolCount: symbols.length }, null, 2));
+      console.log(`DEBUG ${label} proto`, util.inspect(proto, { showHidden: true, depth: 2 }));
+      try { console.log(`DEBUG ${label} descriptors`, util.inspect(descriptors, { showHidden: true, depth: 2 })); } catch (e) { /* ignore */ }
+      if (symbols.length) {
+        try {
+          console.log(`DEBUG ${label} symbols`, symbols.map(s => s.toString()));
+        } catch (e) {}
+      }
+      if ((context as any)?.auth) {
+        try {
+          console.log(`DEBUG ${label}.auth typeof/ctor`, { typeof: typeof (context as any).auth, constructor: (context as any).auth?.constructor?.name || null });
+          console.log(`DEBUG ${label}.auth descriptors`, util.inspect(Object.getOwnPropertyDescriptors((context as any).auth), { showHidden: true, depth: 2 }));
+        } catch (e) {
+          console.log(`DEBUG ${label}.auth introspect failed`, e);
+        }
+      }
+    } catch (e) {
+      console.log(`DEBUG ${label} property-inspection failed`, e);
+    }
+  } catch (e) {
+    console.log(`DEBUG ${label} top-level introspect failed`, e);
+  }
+}
+
 export const registerEvent = functions.https.onCall(async (data: any, context: any) => {
+  debugContext(context, 'registerEvent');
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated.');
   }
@@ -69,7 +111,7 @@ export const registerEvent = functions.https.onCall(async (data: any, context: a
         info: {
           memberId: userId,
           eventId: eventId,
-          timestamp: admin.firestore.FieldValue.serverTimestamp() as any
+          timestamp: FieldValue.serverTimestamp() as any
         },
         details: {
           adultCount: details?.adultCount || 1,
@@ -93,7 +135,7 @@ export const registerEvent = functions.https.onCall(async (data: any, context: a
 
       // 6. Update Event Stats
       transaction.update(eventRef, {
-        'stats.registeredCount': admin.firestore.FieldValue.increment(1)
+        'stats.registeredCount': FieldValue.increment(1)
       });
 
       return { registrationId: newRegRef.id };
@@ -107,6 +149,46 @@ export const registerEvent = functions.https.onCall(async (data: any, context: a
 });
 
 export const cancelRegistration = functions.https.onCall(async (data: any, context: any) => {
+  console.log('DEBUG cancelRegistration entry', { data });
+  debugContext(context, 'cancelRegistration');
+  try {
+      console.log('DEBUG cancelRegistration context summary', JSON.stringify({ auth: context?.auth || null }, null, 2));
+      try {
+        const rawReq = (context as any)?.rawRequest ?? (data as any)?.rawRequest;
+        let headers: any = null;
+        if (rawReq) {
+          if (rawReq.headers) headers = rawReq.headers;
+          else if (rawReq.rawHeaders && Array.isArray(rawReq.rawHeaders)) {
+            headers = {};
+            for (let i = 0; i < rawReq.rawHeaders.length; i += 2) {
+              headers[rawReq.rawHeaders[i]] = rawReq.rawHeaders[i + 1];
+            }
+          }
+        }
+        // rawBody may be a Buffer on the incoming request
+        let rawBodyStr: string | null = null;
+        try {
+          const rawBody = (rawReq as any)?.rawBody ?? (context as any)?.rawBody ?? (data as any)?.rawBody;
+          if (rawBody && typeof (rawBody as any).toString === 'function') {
+            // Buffer or similar
+            rawBodyStr = (rawBody as any).toString('utf8');
+          } else if (typeof rawBody === 'string') {
+            rawBodyStr = rawBody;
+          }
+        } catch (e) {
+          rawBodyStr = null;
+        }
+        const contextProps = Object.getOwnPropertyNames(context || {});
+        const hasAuthProp = Object.prototype.hasOwnProperty.call(context || {}, 'auth');
+        console.log('DEBUG cancelRegistration request-headers', JSON.stringify(headers || null, null, 2));
+        console.log('DEBUG cancelRegistration rawBody', rawBodyStr);
+        console.log('DEBUG cancelRegistration contextProps', JSON.stringify({ props: contextProps, hasAuthProp }, null, 2));
+      } catch (e) {
+        console.log('DEBUG cancelRegistration request-headers (unserializable)', e);
+      }
+  } catch (e) {
+    console.log('DEBUG cancelRegistration context (unserializable)');
+  }
   if (!context.auth) {
      throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated.');
   }
@@ -127,18 +209,24 @@ export const cancelRegistration = functions.https.onCall(async (data: any, conte
 
       const registration = regDoc.data() as Registration;
 
+      // Validate registration document shape
+      const ownerId = registration?.info?.memberId;
+      const eventId = registration?.info?.eventId;
+      if (!ownerId || !eventId) {
+        throw new functions.https.HttpsError('internal', 'Malformed registration document.');
+      }
+
       // Check permissions: Owner or Admin
-      if (registration.info.memberId !== userId) {
-         // Check if admin
+      if (ownerId !== userId) {
          const callerDoc = await db.collection('members').doc(userId).get();
          const isCallerAdmin = callerDoc.exists && callerDoc.data()?.system?.role === 'admin';
-         
          if (!isCallerAdmin) {
             throw new functions.https.HttpsError('permission-denied', 'You can only cancel your own registration or must be an admin.');
          }
       }
 
-      if (registration.status.status === 'cancelled') {
+      const regStatus = registration?.status?.status || null;
+      if (regStatus === 'cancelled') {
         throw new functions.https.HttpsError('failed-precondition', 'Already cancelled.');
       }
 
@@ -148,20 +236,22 @@ export const cancelRegistration = functions.https.onCall(async (data: any, conte
       });
 
       // Update Event Stats
-      const eventRef = db.collection('events').doc(registration.info.eventId);
+      const eventRef = db.collection('events').doc(eventId);
       transaction.update(eventRef, {
-        'stats.registeredCount': admin.firestore.FieldValue.increment(-1)
+        'stats.registeredCount': FieldValue.increment(-1)
       });
 
       return { success: true };
     });
   } catch (error) {
+    console.error('Cancellation Error:', error);
     if (error instanceof functions.https.HttpsError) throw error;
     throw new functions.https.HttpsError('internal', 'Cancellation failed.', error);
   }
 });
 
 export const getMyRegistrations = functions.https.onCall(async (data: any, context: any) => {
+  debugContext(context, 'getMyRegistrations');
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated.');
   }
@@ -182,6 +272,41 @@ export const getMyRegistrations = functions.https.onCall(async (data: any, conte
 
 // Admin: Get all registrations for an event
 export const getEventRegistrations = functions.https.onCall(async (data: any, context: any) => {
+  console.log('DEBUG getEventRegistrations entry', { data });
+  debugContext(context, 'getEventRegistrations');
+    try {
+        console.log('DEBUG getEventRegistrations context summary', JSON.stringify({ auth: context?.auth || null }, null, 2));
+        try {
+          const rawReq = (context as any)?.rawRequest ?? (data as any)?.rawRequest;
+          let headers: any = null;
+          if (rawReq) {
+            if (rawReq.headers) headers = rawReq.headers;
+            else if (rawReq.rawHeaders && Array.isArray(rawReq.rawHeaders)) {
+              headers = {};
+              for (let i = 0; i < rawReq.rawHeaders.length; i += 2) {
+                headers[rawReq.rawHeaders[i]] = rawReq.rawHeaders[i + 1];
+              }
+            }
+          }
+          let rawBodyStr: string | null = null;
+          try {
+            const rawBody = (rawReq as any)?.rawBody ?? (context as any)?.rawBody ?? (data as any)?.rawBody;
+            if (rawBody && typeof (rawBody as any).toString === 'function') rawBodyStr = (rawBody as any).toString('utf8');
+            else if (typeof rawBody === 'string') rawBodyStr = rawBody;
+          } catch (e) {
+            rawBodyStr = null;
+          }
+          const contextProps = Object.getOwnPropertyNames(context || {});
+          const hasAuthProp = Object.prototype.hasOwnProperty.call(context || {}, 'auth');
+          console.log('DEBUG getEventRegistrations request-headers', JSON.stringify(headers || null, null, 2));
+          console.log('DEBUG getEventRegistrations rawBody', rawBodyStr);
+          console.log('DEBUG getEventRegistrations contextProps', JSON.stringify({ props: contextProps, hasAuthProp }, null, 2));
+        } catch (e) {
+          console.log('DEBUG getEventRegistrations request-headers (unserializable)', e);
+        }
+    } catch (e) {
+      console.log('DEBUG getEventRegistrations context (unserializable)');
+    }
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated.');
     }
