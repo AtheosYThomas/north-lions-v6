@@ -9,7 +9,7 @@ const router = createRouter({
       path: '/',
       name: 'dashboard',
       component: () => import('../views/DashboardView.vue'),
-      meta: { requiresAuth: false }
+      meta: { requiresAuth: true }
     },
     {
       path: '/login',
@@ -123,20 +123,18 @@ const router = createRouter({
 
 router.beforeEach(async (to, _from, next) => {
   const store = useUserStore();
-  
-  // Wait for initial auth check to complete
-  if (store.isLoading) {
-    await store.initAuth();
-  }
+
+  // 核心修正：確保在檢查權限前，Auth 狀態已載入
+  await store.initAuth();
 
   if (to.meta.requiresAuth && !store.isAuthenticated) {
     next({ name: 'login' });
     return;
   }
 
-  // Admin Guard
+  // Admin Guard — 容錯同時檢查 system.role 與 top-level role
   if (to.meta.requiresAdmin) {
-    const role = store.currentUser?.system?.role;
+    const role = store.currentUser?.system?.role || store.currentUser?.role;
     if (role !== 'admin') {
        next({ name: 'dashboard' });
        return;
