@@ -122,23 +122,33 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to, _from, next) => {
-  const store = useUserStore();
+  const userStore = useUserStore();
 
-  // 核心修正：確保在檢查權限前，Auth 狀態已載入
-  await store.initAuth();
+  // 確保初始化完成（idempotent）
+  await userStore.initAuth();
 
-  if (to.meta.requiresAuth && !store.isAuthenticated) {
+  const isAuthenticated = userStore.isAuthenticated;
+
+  // 安全地讀取 role，避開 TypeScript 強型別檢查
+  const userProfile = userStore.currentUser as any;
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.system?.role === 'admin';
+
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
+
+  if (requiresAuth && !isAuthenticated) {
     next({ name: 'login' });
     return;
   }
 
-  // Admin Guard — 容錯同時檢查 system.role 與 top-level role
-  if (to.meta.requiresAdmin) {
-    const role = store.currentUser?.system?.role || store.currentUser?.role;
-    if (role !== 'admin') {
-       next({ name: 'dashboard' });
-       return;
-    }
+  if (requiresAdmin && !isAdmin) {
+    next({ name: 'dashboard' });
+    return;
+  }
+
+  if (to.path === '/login' && isAuthenticated) {
+    next({ name: 'dashboard' });
+    return;
   }
 
   // Check registration status
