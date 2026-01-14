@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { Event } from 'shared/types';
 import { multicastMessage, LineMessage } from './line';
 
@@ -97,14 +98,17 @@ export const updateEvent = functions.https.onCall(async (data: any, context: any
 });
 
 // Trigger: On Event Created
-export const onEventCreated = functions.firestore
-  .document('events/{eventId}')
-  .onCreate(async (snap: any, context: any) => {
-    const event = snap.data() as Event;
+export const onEventCreated = onDocumentCreated("events/{eventId}", async (event) => {
+    const snap = event.data;
+    if (!snap) {
+        console.log("No data associated with the event");
+        return;
+    }
+    const eventData = snap.data() as Event;
 
     // Check if push is enabled
     // Based on schema in DESIGN.md: settings: { isPushEnabled: boolean }
-    const isPushEnabled = (event as any).settings?.isPushEnabled === true;
+    const isPushEnabled = (eventData as any).settings?.isPushEnabled === true;
 
     if (!isPushEnabled) {
       console.log('Push notification not enabled for this event.');
@@ -131,11 +135,11 @@ export const onEventCreated = functions.firestore
       }
 
       // Construct Flex Message
-      const dateStr = event.time?.date ? (event.time.date as any).toDate().toLocaleDateString('zh-TW') : '未定';
+      const dateStr = eventData.time?.date ? (eventData.time.date as any).toDate().toLocaleDateString('zh-TW') : '未定';
 
       const message: LineMessage = {
         type: 'flex',
-        altText: `新活動通知：${event.name}`,
+        altText: `新活動通知：${eventData.name}`,
         contents: {
           type: 'bubble',
           header: {
@@ -151,9 +155,9 @@ export const onEventCreated = functions.firestore
             ],
             backgroundColor: '#00B900'
           },
-          hero: event.system?.coverImage ? {
+          hero: eventData.system?.coverImage ? {
             type: 'image',
-            url: event.system.coverImage,
+            url: eventData.system.coverImage,
             size: 'full',
             aspectRatio: '20:13',
             aspectMode: 'cover'
@@ -164,7 +168,7 @@ export const onEventCreated = functions.firestore
             contents: [
               {
                 type: 'text',
-                text: event.name,
+                text: eventData.name,
                 weight: 'bold',
                 size: 'xl',
                 wrap: true
@@ -211,7 +215,7 @@ export const onEventCreated = functions.firestore
                       },
                       {
                         type: 'text',
-                        text: event.details?.location || '待定',
+                        text: eventData.details?.location || '待定',
                         wrap: true,
                         color: '#666666',
                         size: 'sm',
@@ -254,4 +258,4 @@ export const onEventCreated = functions.firestore
     } catch (error) {
       console.error('Error sending event push:', error);
     }
-  });
+});
