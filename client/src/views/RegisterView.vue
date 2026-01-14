@@ -65,11 +65,13 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { functions } from '../firebase';
 import { httpsCallable } from 'firebase/functions';
 import { useUserStore } from '../stores/user';
 
 const userStore = useUserStore();
+const route = useRoute();
 
 const form = ref({
   name: userStore.currentUser?.name || '', // Pre-fill with LINE name if available
@@ -91,7 +93,8 @@ const handleSubmit = async () => {
       name: form.value.name,
       mobile: form.value.mobile,
       company: form.value.company,
-      title: form.value.title
+      title: form.value.title,
+      lineId: route.query.lineId as string || undefined
     });
 
     // Refresh user profile to get the new 'active' status

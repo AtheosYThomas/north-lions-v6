@@ -14,7 +14,7 @@ export const registerMember = functions.https.onCall(async (data: any, context: 
   }
 
   const uid = context.auth.uid;
-  const { name, mobile, company, title } = data;
+  const { name, mobile, company, title, lineId } = data;
 
   // 2. Basic Validation
   if (!name || !mobile) {
@@ -30,15 +30,21 @@ export const registerMember = functions.https.onCall(async (data: any, context: 
     }
 
     // 3. Update Member Data
-    // Only allow updating specific fields during registration
-    await memberRef.update({
+    const updates: any = {
       name: name,
       'contact.mobile': mobile,
       'company.name': company || '',
       'organization.title': title || '',
       'status.activeStatus': 'active', // Activate the member
       'personal.joinDate': admin.firestore.FieldValue.serverTimestamp(),
-    });
+    };
+
+    if (lineId) {
+        updates['contact.lineUserId'] = lineId;
+    }
+
+    // Only allow updating specific fields during registration
+    await memberRef.update(updates);
 
     return { success: true };
   } catch (error) {

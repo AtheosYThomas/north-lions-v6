@@ -252,7 +252,12 @@ export const onEventCreated = onDocumentCreated("events/{eventId}", async (event
       const BATCH_SIZE = 500;
       for (let i = 0; i < lineUserIds.length; i += BATCH_SIZE) {
         const batch = lineUserIds.slice(i, i + BATCH_SIZE);
-        await multicastMessage(batch, [message]);
+        try {
+            await multicastMessage(batch, [message]);
+        } catch (batchError) {
+            console.error(`Error sending batch ${i / BATCH_SIZE + 1}:`, batchError);
+            // Continue to next batch
+        }
       }
 
     } catch (error) {

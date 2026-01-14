@@ -150,7 +150,49 @@ async function handleEvent(event: line.WebhookEvent) {
             .get();
 
         if (registrationsSnapshot.empty) {
-            await replyMessage(replyToken, [{ type: 'text', text: '您目前沒有報名任何活動。' }]);
+             const flexMessage: line.FlexMessage = {
+                 type: 'flex',
+                 altText: '尚無報名紀錄',
+                 contents: {
+                     type: 'bubble',
+                     body: {
+                         type: 'box',
+                         layout: 'vertical',
+                         contents: [
+                             {
+                                 type: 'text',
+                                 text: '尚無報名紀錄',
+                                 weight: 'bold',
+                                 size: 'xl',
+                                 color: '#666666'
+                             },
+                             {
+                                 type: 'text',
+                                 text: '您目前沒有即將參加的活動，快去『近期活動』看看吧！',
+                                 wrap: true,
+                                 margin: 'md',
+                                 color: '#666666'
+                             }
+                         ]
+                     },
+                     footer: {
+                         type: 'box',
+                         layout: 'vertical',
+                         contents: [
+                             {
+                                 type: 'button',
+                                 style: 'primary',
+                                 action: {
+                                     type: 'uri',
+                                     label: '查看近期活動',
+                                     uri: 'https://liff.line.me/2006830768-D9X5j04x/'
+                                 }
+                             }
+                         ]
+                     }
+                 }
+             };
+            await replyMessage(replyToken, [flexMessage]);
             return Promise.resolve(null);
         }
 
