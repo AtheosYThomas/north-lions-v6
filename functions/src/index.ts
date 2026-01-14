@@ -6,7 +6,7 @@ admin.initializeApp();
 
 import { verifyLineToken } from './auth';
 import { initDatabase } from './init';
-import { getEvents, getEvent, createEvent, updateEvent } from './events';
+import { getEvents, getEvent, createEvent, updateEvent, onEventCreated } from './events';
 import { registerMember, getMembers, updateMemberStatus } from './members';
 import { getAnnouncements, getAnnouncement, createAnnouncement, updateAnnouncement } from './announcements';
 import { registerEvent, cancelRegistration, getMyRegistrations, getEventRegistrations } from './registrations';
@@ -23,6 +23,7 @@ export {
   getEvent, 
   createEvent, 
   updateEvent, 
+  onEventCreated,
   registerMember,
   getMembers,
   updateMemberStatus,

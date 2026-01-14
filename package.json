@@ -19,5 +19,8 @@
     "chai": "^4.3.7",
     "mocha": "^11.7.5",
     "playwright": "^1.57.0"
+  },
+  "dependencies": {
+    "firebase-tools": "^15.2.1"
   }
 }

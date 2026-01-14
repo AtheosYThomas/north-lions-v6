@@ -22,6 +22,10 @@ const formatDate = (dateInput: any) => {
   const date = dateInput && dateInput.toDate ? dateInput.toDate() : new Date(dateInput);
   return isNaN(date.getTime()) ? '' : date.toLocaleDateString();
 };
+
+const getEventDate = (event: any) => {
+  return event.time?.date || event.info?.date || event.publishing?.publishTime;
+};
 </script>
 
 <template>
@@ -44,7 +48,7 @@ const formatDate = (dateInput: any) => {
         </div>
         <h2 class="text-xl font-semibold">{{ event.name }}</h2>
         <p class="text-sm text-gray-600">
-          {{ formatDate(event.time?.date || event.info?.date || event.publishing?.publishTime) }} | {{ event.details.location }}
+          {{ formatDate(getEventDate(event)) }} | {{ event.details.location }}
         </p>
         <div class="mt-2">
             <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{{ event.category }}</span>
