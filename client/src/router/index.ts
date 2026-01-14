@@ -121,7 +121,8 @@ const router = createRouter({
   ]
 });
 
-router.beforeEach(async (to, from, next) => {
+// 修正：移除未使用的 'from' 參數以滿足 noUnusedLocals
+router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore() as any
 
   // 1. 確保初始化完成
