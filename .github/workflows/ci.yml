@@ -55,3 +55,15 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           channelId: live
           projectId: north-lions-v6-a7757
+
+      - name: Deploy Functions
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          PROJECT_ID: north-lions-v6-a7757
+        run: |
+          # Create Service Account Key JSON file
+          echo "$FIREBASE_SERVICE_ACCOUNT_KEY" > "$HOME"/gcp-key.json
+          export GOOGLE_APPLICATION_CREDENTIALS="$HOME"/gcp-key.json
+
+          # Deploy Functions using the custom script
+          npm run deploy:functions
