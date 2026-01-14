@@ -121,53 +121,37 @@ const router = createRouter({
   ]
 });
 
-router.beforeEach(async (to, _from, next) => {
-  const userStore = useUserStore();
+router.beforeEach(async (to, from, next) => {
+  const userStore = useUserStore() as any
 
-  // 1. 確保初始化完成 (使用 any 檢查以避免 TS 型別錯誤)
-  if (!(userStore as any).isInitialized) {
-    await userStore.initAuth();
+  // 1. 確保初始化完成
+  if (!userStore.isInitialized) {
+    try {
+      await userStore.initAuth()
+    } catch (e) {
+      console.error('Auth init failed', e)
+    }
   }
 
-  // 2. 認證與角色判斷
-  const isAuthenticated = userStore.isAuthenticated;
-  const userData = (userStore.profile || userStore.currentUser) as any;
-  const isAdmin = userData?.role === 'admin' || userData?.system?.role === 'admin';
+  // 2. 取得認證與管理員狀態 (使用最寬鬆的讀取方式)
+  const isAuthenticated = !!userStore.currentUser
+  const profile = userStore.profile || {}
+  const system = profile.system || {}
+  const isAdmin = profile.role === 'admin' || system.role === 'admin'
 
-  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
 
+  // 3. 判斷邏輯
   if (requiresAuth && !isAuthenticated) {
-    next({ name: 'login' });
-    return;
+    next('/login')
+  } else if (requiresAdmin && !isAdmin) {
+    next('/')
+  } else if (to.path === '/login' && isAuthenticated) {
+    next('/')
+  } else {
+    next()
   }
-
-  if (requiresAdmin && !isAdmin) {
-    next({ name: 'dashboard' });
-    return;
-  }
-
-  if (to.path === '/login' && isAuthenticated) {
-    next({ name: 'dashboard' });
-    return;
-  }
-
-  // 3. 檢查註冊狀態（使用 userStore，避免未定義的 store 變數）
-  if (isAuthenticated) {
-    const isPending = (userData?.status?.activeStatus) === 'pending_registration';
-
-    if (isPending && to.name !== 'register') {
-      next({ name: 'register' });
-      return;
-    }
-
-    if (!isPending && to.name === 'register') {
-      next({ name: 'dashboard' });
-      return;
-    }
-  }
-
-  next();
-});
+})
 
 export default router;
