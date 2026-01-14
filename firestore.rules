@@ -2,93 +2,49 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // --- Helper Functions ---
-    
-    // Check if the user is authenticated
+
+    // Basic helpers
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Check if the user is the owner of the document (based on UID)
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    // Consider user an officer/admin if either users/{uid} or members/{uid} has role == 'admin'
+    function isOfficer() {
+      return isAuthenticated() && (
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).exists() &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+        (get(/databases/$(database)/documents/members/$(request.auth.uid)).exists() &&
+          get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role == 'admin')
+      );
     }
 
-    // Check if the user is an Admin
-    // We assume the user's role is stored in /members/{uid} under field `system.role`
-    function isAdmin() {
-      return isAuthenticated() && 
-        get(/databases/$(database)/documents/members/$(request.auth.uid)).data.system.role == 'admin';
-    }
-
-    // Default deny
+    // Default: deny everything unless matched below
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // --- Collection Rules ---
-
-    // 1. Members
-    match /members/{userId} {
-      // Directory is open to members (authenticated users)
-      allow read: if isAuthenticated();
-      // Write allowed if user is owner OR admin
-      allow write: if isOwner(userId) || isAdmin();
-    }
-
-    // 2. Announcements
-    match /announcements/{announcementId} {
-      // Read allowed for authenticated users
-      allow read: if isAuthenticated();
-      // Write allowed for admins only
-      allow write: if isAdmin();
-    }
-
-    // 3. Events
+    // Events: public read; only officers may write
     match /events/{eventId} {
-      // Read allowed for authenticated users
-      allow read: if isAuthenticated();
-      // Write allowed for admins only
-      allow write: if isAdmin();
+      allow read: if true; // public
+      allow write: if isOfficer();
     }
 
-    // 4. Registrations
-    match /registrations/{registrationId} {
-      // Read allowed if user is owner (of the registration info) OR admin
-      allow read: if isAuthenticated() && (
-        resource.data.info.memberId == request.auth.uid || isAdmin()
-      );
-      // Write allowed if user is owner (creating/updating their own) OR admin
-      allow write: if isAuthenticated() && (
-        request.resource.data.info.memberId == request.auth.uid || isAdmin()
-      );
+    // Users: owner or officer may read; only officer may write
+    match /users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isOfficer());
+      allow write: if isOfficer();
     }
 
-    // 5. Donations
-    match /donations/{donationId} {
-      // Read allowed if user is owner (of the donation record) OR admin
-      allow read: if isAuthenticated() && (
-        resource.data.memberId == request.auth.uid || isAdmin()
-      );
-      // Write allowed for admins only (Donations are usually recorded by admins/system)
-      allow write: if isAdmin();
+    // Members: owner or officer may read/write; officers may write any
+    match /members/{memberId} {
+      allow read: if request.auth != null && (request.auth.uid == memberId || isOfficer());
+      allow write: if request.auth != null && (request.auth.uid == memberId || isOfficer());
     }
 
-    // 6. Payments
-    match /payments/{paymentId} {
-      // Read allowed if user is owner (of the payment record) OR admin
-      allow read: if isAuthenticated() && (
-        resource.data.related.memberId == request.auth.uid || isAdmin()
-      );
-      // Write allowed for admins only
-      allow write: if isAdmin();
-    }
-
-    // 7. Message Logs
-    match /message_logs/{messageId} {
-      // Only admins can read/write message logs
-      allow read, write: if isAdmin();
+    // Registrations: anyone can create (allow public signups), officers manage
+    match /registrations/{regId} {
+      allow create: if true;
+      allow read, update, delete: if isOfficer();
     }
   }
 }
