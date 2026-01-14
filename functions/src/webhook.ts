@@ -76,7 +76,7 @@ async function handleEvent(event: line.WebhookEvent) {
     await db.collection('message_logs').add({
         lineUserId,
         content,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: new Date(),
         category: 'other', // Default category
         status: 'pending',
         memberName
