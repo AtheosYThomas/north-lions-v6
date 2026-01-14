@@ -1,29 +1,49 @@
 const crypto = require('crypto');
 
 // Configuration
-// Usage: node scripts/simulate_line_webhook.js [TARGET_URL] [CHANNEL_SECRET]
+// Usage: node scripts/simulate_line_webhook.js [TARGET_URL] [CHANNEL_SECRET] [EVENT_TYPE]
 const TARGET_URL = process.argv[2] || process.env.TARGET_URL || 'http://127.0.0.1:5001/demo-project/us-central1/lineWebhook';
 const CHANNEL_SECRET = process.argv[3] || process.env.CHANNEL_SECRET || 'test_secret';
+const EVENT_TYPE = process.argv[4] || 'message'; // message | follow
+
+let event = {};
+const timestamp = Date.now();
+const userId = "U4af4980629testuser";
+const replyToken = "757913772c4646b784d4b7ce46d12671";
+
+if (EVENT_TYPE === 'follow') {
+    event = {
+        type: "follow",
+        mode: "active",
+        timestamp,
+        source: {
+            type: "user",
+            userId
+        },
+        replyToken
+    };
+} else {
+    // Default to message
+    event = {
+        type: "message",
+        message: {
+            type: "text",
+            id: "14353793211180",
+            text: "指令" // Test the "help" command by default
+        },
+        timestamp,
+        source: {
+            type: "user",
+            userId
+        },
+        replyToken,
+        mode: "active"
+    };
+}
 
 const payload = {
   destination: "xxxxxxxxxx",
-  events: [
-    {
-      type: "message",
-      message: {
-        type: "text",
-        id: "14353793211180",
-        text: "測試訊息 Hello World"
-      },
-      timestamp: Date.now(),
-      source: {
-        type: "user",
-        userId: "U4af4980629testuser"
-      },
-      replyToken: "757913772c4646b784d4b7ce46d12671",
-      mode: "active"
-    }
-  ]
+  events: [event]
 };
 
 const body = JSON.stringify(payload);
@@ -35,6 +55,7 @@ const signature = crypto
 console.log('🚀 Sending simulated LINE Webhook...');
 console.log(`📍 Target URL: ${TARGET_URL}`);
 console.log(`🔑 Channel Secret: ${CHANNEL_SECRET}`);
+console.log(`📝 Event Type: ${EVENT_TYPE}`);
 console.log(`✍️ Signature: ${signature}`);
 
 (async () => {
