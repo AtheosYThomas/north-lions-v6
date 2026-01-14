@@ -1,67 +1,45 @@
-#!/usr/bin/env node
-// Usage:
-// node scripts/set_publish_and_admin.js --serviceAccount=path/to/key.json --projectId=your-project-id --uid=USER_UID
-// Or set env vars: SERVICE_ACCOUNT, PROJECT_ID, TARGET_UID
-
-const fs = require('fs');
-const path = require('path');
+// scripts/set_publish_and_admin.js
 const admin = require('firebase-admin');
+const { program } = require('commander');
 
-function parseArgs() {
-  const args = {};
-  process.argv.slice(2).forEach(arg => {
-    const m = arg.match(/^--([^=]+)=(.*)$/);
-    if (m) args[m[1]] = m[2];
-  });
-  return args;
+program.option('--uid <type>', 'User UID').parse(process.argv);
+const options = program.opts();
+
+if (!admin.apps.length) {
+  // Use application default credentials (set GOOGLE_APPLICATION_CREDENTIALS)
+  admin.initializeApp({ credential: admin.credential.applicationDefault() });
 }
 
-async function main() {
-  const args = parseArgs();
-  const serviceAccountPath = args.serviceAccount || process.env.SERVICE_ACCOUNT || process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  const projectId = args.projectId || process.env.PROJECT_ID || process.env.PROJECT || 'north-lions-v6-a7757';
-  const targetUid = args.uid || process.env.TARGET_UID || process.env.UID;
+const db = admin.firestore();
 
-  if (!serviceAccountPath) {
-    console.error('Missing service account path. Provide --serviceAccount=path or set SERVICE_ACCOUNT env var.');
-    process.exit(1);
-  }
-  if (!targetUid) {
-    console.error('Missing target UID. Provide --uid=USER_UID or set TARGET_UID env var.');
+async function run() {
+  const uid = options.uid;
+  if (!uid) {
+    console.error('Missing --uid argument');
     process.exit(1);
   }
 
-  if (!fs.existsSync(serviceAccountPath)) {
-    console.error('Service account file not found at', serviceAccountPath);
-    process.exit(1);
-  }
+  // 1. 强制將活動設為發佈，且日期設為 Timestamp (2026/2/15)
+  const eventRef = db.collection('events').doc('event_2026_new_year');
+  await eventRef.set({
+    status: 'published',
+    info: {
+      date: admin.firestore.Timestamp.fromDate(new Date('2026-02-15')),
+      title: '2026 北大獅子會新春團拜'
+    }
+  }, { merge: true });
+  console.log('✅ 活動已設為公開 (Status: published) 且日期已更新為 Timestamp');
 
-  const key = require(path.resolve(serviceAccountPath));
+  // 2. 將使用者設為管理員 (同時寫入 users 與 members 以防萬一)
+  const userUpdate = { role: 'admin', updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+  await db.collection('users').doc(uid).set(userUpdate, { merge: true });
+  await db.collection('members').doc(uid).set(userUpdate, { merge: true });
 
-  admin.initializeApp({
-    credential: admin.credential.cert(key),
-    projectId: projectId,
-  });
-
-  const db = admin.firestore();
-
-  try {
-    // 1) Set event status
-    const eventDocRef = db.collection('events').doc('event_2026_new_year');
-    await eventDocRef.set({ status: 'published' }, { merge: true });
-    console.log('Set events/event_2026_new_year.status = published');
-
-    // 2) Set member role
-    const memberRef = db.collection('members').doc(targetUid);
-    await memberRef.set({ system: { role: 'admin' }, role: 'admin' }, { merge: true });
-    console.log(`Set members/${targetUid}.system.role = admin and role = admin`);
-
-    console.log('Done.');
-    process.exit(0);
-  } catch (err) {
-    console.error('Error updating Firestore:', err);
-    process.exit(1);
-  }
+  console.log(`✅ 使用者 ${uid} 已晉升為管理員`);
+  process.exit(0);
 }
 
-main();
+run().catch(err => {
+  console.error(err);
+  process.exit(1);
+});
