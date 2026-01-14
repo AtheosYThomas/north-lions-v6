@@ -124,14 +124,15 @@ const router = createRouter({
 router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore();
 
-  // 確保初始化完成（idempotent）
-  await userStore.initAuth();
+  // 1. 確保初始化完成 (使用 any 檢查以避免 TS 型別錯誤)
+  if (!(userStore as any).isInitialized) {
+    await userStore.initAuth();
+  }
 
+  // 2. 認證與角色判斷
   const isAuthenticated = userStore.isAuthenticated;
-
-  // 安全地讀取 role，避開 TypeScript 強型別檢查
-  const userProfile = userStore.currentUser as any;
-  const isAdmin = userProfile?.role === 'admin' || userProfile?.system?.role === 'admin';
+  const userData = (userStore.profile || userStore.currentUser) as any;
+  const isAdmin = userData?.role === 'admin' || userData?.system?.role === 'admin';
 
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
   const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
@@ -151,17 +152,15 @@ router.beforeEach(async (to, _from, next) => {
     return;
   }
 
-  // Check registration status
-  if (store.isAuthenticated) {
-    const isPending = store.currentUser?.status?.activeStatus === 'pending_registration';
-    
-    // If pending and not going to register page, redirect to register
+  // 3. 檢查註冊狀態（使用 userStore，避免未定義的 store 變數）
+  if (isAuthenticated) {
+    const isPending = (userData?.status?.activeStatus) === 'pending_registration';
+
     if (isPending && to.name !== 'register') {
       next({ name: 'register' });
       return;
     }
 
-    // If active and trying to go to register page, redirect to home
     if (!isPending && to.name === 'register') {
       next({ name: 'dashboard' });
       return;
