@@ -1,6 +1,5 @@
 
 import axios from 'axios';
-
 // Support both naming conventions, prioritizing the one used in webhook.ts
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
 
