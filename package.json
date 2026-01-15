@@ -12,7 +12,9 @@
     "build:client": "npm run build -w client",
     "build:functions": "npm run build -w functions",
     "build": "npm run build:client && npm run build:functions",
-    "deploy": "npm run build && firebase deploy"
+    "deploy:functions": "node scripts/deploy_functions.js",
+    "deploy:hosting": "npm run build:client && firebase deploy --only hosting",
+    "deploy": "npm run build:client && npm run deploy:functions && firebase deploy --except functions"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",

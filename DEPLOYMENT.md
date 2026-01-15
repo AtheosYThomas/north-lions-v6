@@ -33,17 +33,19 @@
 3. **建置**：執行前端打包 (`npm run build`) 產生 `dist/` 靜態檔案。
 4. **發布**：
    - **Hosting**：部署至 Firebase Hosting。
-   - **Functions**：執行 `firebase deploy --only functions`。
+   - **Functions**：執行 `npm run deploy:functions` (內部呼叫 `scripts/deploy_functions.js` 以處理 Shared Library 依賴)。
 
 ### 4.2 手動部署（緊急修復）
 若需執行手動部署，必須確保已安裝 Firebase CLI 並通過 `firebase login` 認證：
 
 ```bash
-# 確保環境變數已設定
-firebase functions:config:set line.channel_secret="YOUR_SECRET"
+# 確保 .env 檔案已正確設定於 functions 目錄中
 
-# 部署完整專案
-firebase deploy
+# 部署完整專案 (建議方式，會自動處理依賴)
+npm run deploy
+
+# 或僅部署 Functions
+npm run deploy:functions
 ```
 
 ## 5. 資料庫部署與遷移
