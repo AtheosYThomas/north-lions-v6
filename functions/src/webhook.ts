@@ -1,8 +1,15 @@
-import * as functions from 'firebase-functions';
+import { onRequest } from 'firebase-functions/v2/https';
+import { defineSecret } from 'firebase-functions/params';
+import * as dotenv from 'dotenv';
 import * as admin from 'firebase-admin';
 import * as line from '@line/bot-sdk';
+import { createHash } from 'crypto';
 import { replyMessage } from './line';
 import { Registration, Event } from 'shared/types';
+
+if (process.env.FUNCTIONS_EMULATOR === 'true') {
+    dotenv.config({ path: '.env.dev' });
+}
 
 // Ensure Firebase Admin is initialized
 if (!admin.apps.length) {
@@ -12,29 +19,104 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 // LINE Configuration
-const config: line.ClientConfig = {
-  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN || '',
-  channelSecret: process.env.CHANNEL_SECRET || '',
-};
+const lineChannelSecret = defineSecret('LINE_CHANNEL_SECRET');
+const lineChannelAccessToken = defineSecret('LINE_CHANNEL_ACCESS_TOKEN');
 
-export const lineWebhook = functions.https.onRequest(async (req, res) => {
-  const signature = req.headers['x-line-signature'] as string;
+export const lineWebhook = onRequest(
+    { secrets: [lineChannelSecret, lineChannelAccessToken], invoker: 'public' },
+    async (req, res) => {
+        console.info('lineWebhook secrets status', {
+            hasEnvLineSecret: !!process.env.LINE_CHANNEL_SECRET,
+            hasEnvLineToken: !!process.env.LINE_CHANNEL_ACCESS_TOKEN,
+            hasEnvChannelSecret: !!process.env.CHANNEL_SECRET,
+        });
+
+        const channelAccessToken = (
+            lineChannelAccessToken.value() ||
+            process.env.LINE_CHANNEL_ACCESS_TOKEN ||
+            process.env.CHANNEL_ACCESS_TOKEN ||
+            ''
+        ).trim();
+        const channelSecret = (
+            lineChannelSecret.value() ||
+            process.env.LINE_CHANNEL_SECRET ||
+            process.env.CHANNEL_SECRET ||
+            ''
+        ).trim();
+
+        const config: line.ClientConfig = {
+            channelAccessToken,
+            channelSecret,
+        };
+
+        const signatureHeader = req.headers['x-line-signature'];
+        const signature = Array.isArray(signatureHeader)
+            ? signatureHeader[0]
+            : signatureHeader;
   
-  if (!config.channelSecret) {
-     console.error('CHANNEL_SECRET is not set.');
-     res.status(500).send('Server Error: CHANNEL_SECRET not configured');
-     return;
-  }
+    if (!config.channelSecret) {
+        console.error('LINE_CHANNEL_SECRET is not set.');
+        res.status(500).send('Server Error: CHANNEL_SECRET not configured');
+        return;
+    }
 
   // 1. Signature Validation
   // req.rawBody is a Buffer available in Firebase Cloud Functions
-  if (!line.validateSignature(req.rawBody, config.channelSecret, signature)) {
-    console.warn('Invalid signature:', signature);
-    res.status(403).send('Invalid signature');
-    return;
-  }
+    if (!signature) {
+        console.warn('Missing x-line-signature header');
+        res.status(400).send('Missing signature');
+        return;
+    }
 
-  const events: line.WebhookEvent[] = req.body.events;
+        const rawBodySource = Buffer.isBuffer(req.rawBody)
+                ? 'rawBody(buffer)'
+                : typeof req.rawBody === 'string'
+                    ? 'rawBody(string)'
+                    : typeof req.body === 'string'
+                        ? 'body(string)'
+                        : 'body(json)';
+
+        const rawBody = Buffer.isBuffer(req.rawBody)
+                ? req.rawBody
+                : typeof req.rawBody === 'string'
+                    ? Buffer.from(req.rawBody)
+                    : typeof req.body === 'string'
+                        ? Buffer.from(req.body)
+                        : Buffer.from(JSON.stringify(req.body ?? {}));
+
+        const secretHash = createHash('sha256')
+                .update(config.channelSecret)
+                .digest('hex');
+
+        console.info('lineWebhook signature check', {
+                hasSignature: !!signature,
+                rawBodyBytes: rawBody.length,
+                rawBodySource,
+                secretHash,
+        });
+    let isValid = false;
+    try {
+        isValid = line.validateSignature(rawBody, config.channelSecret, signature);
+    } catch (error) {
+        console.error('Signature validation error:', error);
+        res.status(500).send('Signature validation error');
+        return;
+    }
+
+    if (!isValid) {
+        console.warn('Invalid signature:', signature);
+        res.status(403).send('Invalid signature');
+        return;
+    }
+
+    const events: line.WebhookEvent[] = Array.isArray(req.body?.events)
+        ? req.body.events
+        : [];
+
+    if (events.length === 0) {
+        res.status(200).json([]);
+        return;
+    }
 
   try {
     const results = await Promise.all(events.map(async (event) => {
@@ -45,7 +127,8 @@ export const lineWebhook = functions.https.onRequest(async (req, res) => {
     console.error('Webhook processing error:', error);
     res.status(500).end();
   }
-});
+    }
+);
 
 async function handleEvent(event: line.WebhookEvent) {
   // Handle Message Event

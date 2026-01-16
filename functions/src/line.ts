@@ -1,15 +1,24 @@
 
 import axios from 'axios';
-// Support both naming conventions, prioritizing the one used in webhook.ts
-const LINE_CHANNEL_ACCESS_TOKEN = process.env.CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
+import * as dotenv from 'dotenv';
 
-const client = axios.create({
-  baseURL: 'https://api.line.me/v2/bot',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
-  }
-});
+if (process.env.FUNCTIONS_EMULATOR === 'true') {
+  dotenv.config({ path: '.env.dev' });
+}
+
+const getLineChannelAccessToken = () =>
+  process.env.LINE_CHANNEL_ACCESS_TOKEN ||
+  process.env.CHANNEL_ACCESS_TOKEN ||
+  '';
+
+const createClient = (token: string) =>
+  axios.create({
+    baseURL: 'https://api.line.me/v2/bot',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
 
 export interface LineMessage {
   type: string;
@@ -18,12 +27,13 @@ export interface LineMessage {
 }
 
 export const pushMessage = async (to: string, messages: LineMessage[]) => {
-  if (!LINE_CHANNEL_ACCESS_TOKEN) {
+  const token = getLineChannelAccessToken();
+  if (!token) {
     console.warn('LINE_CHANNEL_ACCESS_TOKEN is not set. Skipping push message.');
     return;
   }
   try {
-    await client.post('/message/push', {
+    await createClient(token).post('/message/push', {
       to,
       messages
     });
@@ -34,12 +44,13 @@ export const pushMessage = async (to: string, messages: LineMessage[]) => {
 };
 
 export const multicastMessage = async (to: string[], messages: LineMessage[]) => {
-  if (!LINE_CHANNEL_ACCESS_TOKEN) {
+  const token = getLineChannelAccessToken();
+  if (!token) {
     console.warn('LINE_CHANNEL_ACCESS_TOKEN is not set. Skipping multicast message.');
     return;
   }
   try {
-    await client.post('/message/multicast', {
+    await createClient(token).post('/message/multicast', {
       to,
       messages
     });
@@ -49,12 +60,13 @@ export const multicastMessage = async (to: string[], messages: LineMessage[]) =>
 };
 
 export const broadcastMessage = async (messages: LineMessage[]) => {
-  if (!LINE_CHANNEL_ACCESS_TOKEN) {
+  const token = getLineChannelAccessToken();
+  if (!token) {
     console.warn('LINE_CHANNEL_ACCESS_TOKEN is not set. Skipping broadcast.');
     return;
   }
   try {
-    await client.post('/message/broadcast', {
+    await createClient(token).post('/message/broadcast', {
       messages
     });
   } catch (error: any) {
@@ -63,12 +75,13 @@ export const broadcastMessage = async (messages: LineMessage[]) => {
 };
 
 export const replyMessage = async (replyToken: string, messages: LineMessage[]) => {
-    if (!LINE_CHANNEL_ACCESS_TOKEN) {
+  const token = getLineChannelAccessToken();
+  if (!token) {
         console.warn('LINE_CHANNEL_ACCESS_TOKEN is not set. Skipping reply.');
         return;
     }
     try {
-        await client.post('/message/reply', {
+    await createClient(token).post('/message/reply', {
             replyToken,
             messages
         });

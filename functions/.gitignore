@@ -4,3 +4,7 @@ lib/
 
 # TypeScript definitions
 *.d.ts
+
+# Local env files
+.env
+.env.dev
