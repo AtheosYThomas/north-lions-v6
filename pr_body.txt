@@ -1,0 +1,44 @@
+Title: fix(functions): resolve cancelRegistration TypeError
+
+Summary
+- 修正 Functions 中因 `FieldValue` 未正確引用導致的 runtime TypeError，並清理 / 增強本地 E2E 開發流程與模擬器設定。
+
+What I changed
+- `functions/src/registrations.ts`: 導入並使用 `FieldValue` 正確呼叫 `increment()` / `serverTimestamp()`（修復 cancelRegistration 錯誤）。
+- `client/src/firebase.ts`: 強制使用 127.0.0.1 作為 emulator host（穩定本地連線）。
+- `.gitignore`: 新增 emulator / E2E 暫存檔案與日誌忽略規則。
+- `scripts/e2e_auth_test.ps1`: 移除硬編碼憑證，改由環境變數（`TEST_USER_EMAIL`, `TEST_USER_PASS`, `TEST_API_KEY`, `TEST_PROJECT_ID`, `TEST_AUTH_HOST`, `TEST_FUNC_HOST`）提供，並保留合理預設值。
+- `scripts/list_exports.js`: 加入開發工具以檢查 functions 匯出。
+- `.github/copilot-instructions.md`: 專案內部 Copilot 操作說明（DX）。
+
+Why
+- 真正原因為 `FieldValue` 在某些執行環境中為 undefined，引起 "Cannot read properties of undefined (reading 'increment')"。修正後在本地 emulator 下以 seeder 與 Playwright E2E 驗證，`cancelRegistration` 回傳成功。
+
+Verification / How to test locally
+1. build functions
+```bash
+cd functions
+npm run build
+```
+2. 啟動 emulator（或在 repo root）
+```bash
+npx firebase emulators:start --only auth,functions,firestore
+```
+3. 使用 seeder + 呼叫腳本或直接執行 E2E（開發機器）
+```bash
+node scripts/seed_quick.js      # 若有 seeder
+node scripts/call_cancel.js     # 測試 cancel callable
+# 或使用 Playwright E2E（真實 emulator token）
+node scripts/playwright_e2e.js --use-real
+```
+預期：`cancelRegistration` 回應 HTTP 200 並回傳 success；Playwright E2E 最終列印 `Cancellation appears successful`。
+
+Security notes
+- `scripts/e2e_auth_test.ps1` 現已讀取敏感值自環境變數；請在 CI 或本地執行前透過環境變數注入，不要將密碼/API key 硬編碼推送。
+
+Commits
+- 包含主要提交範例： `1abc2e1`（FieldValue 修正）、`7889662`（整理 emulator config）、`4c0321f`（加入 .github 與腳本）。
+
+Next steps / Suggestions
+- 在合併前於 CI 上跑一次 functions build + unit tests 或 emulator-based E2E。
+- 如需，我可協助建立 PR（若你允許我安裝/使用 `gh` 或提供一個臨時 token），或我可以把這段描述再微調。

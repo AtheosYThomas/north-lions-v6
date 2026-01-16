@@ -5,6 +5,7 @@ coverage/
 .env
 .env.local
 .firebaserc
+service-account.json
 
 # Temp logs and test artifacts
 *.log
