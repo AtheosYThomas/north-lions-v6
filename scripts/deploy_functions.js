@@ -53,8 +53,10 @@ try {
   run('npm install --no-audit --no-fund', { cwd: functionsDir });
 
   // Deploy functions
+  const projectId = process.env.PROJECT_ID || process.env.FIREBASE_PROJECT || process.env.GCLOUD_PROJECT;
+  const projectArg = projectId ? ` --project ${projectId}` : '';
   console.log('Deploying functions...');
-  run('firebase deploy --only functions', { cwd: repoRoot });
+  run(`firebase deploy --only functions${projectArg}`, { cwd: repoRoot });
 
   console.log('\nDeployment completed.');
 
