@@ -17,3 +17,4 @@ scripts/playwright_output.txt
 scripts/run_callable_test.js
 scripts/run_e2e.ps1
 scripts/seed_*.js
+functions/shared-*.tgz
