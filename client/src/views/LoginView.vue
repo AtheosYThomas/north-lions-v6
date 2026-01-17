@@ -48,6 +48,7 @@ const devEmail = ref('admin@example.com');
 const devPassword = ref('password123');
 
 const LIFF_ID = import.meta.env.VITE_LIFF_ID;
+const hasAutoLogin = ref(false);
 
 const initLiff = async () => {
   if (!LIFF_ID) {
@@ -62,8 +63,14 @@ const initLiff = async () => {
   }
 };
 
-onMounted(() => {
-  initLiff();
+onMounted(async () => {
+  await initLiff();
+
+  if (!hasAutoLogin.value && liff.isLoggedIn()) {
+    hasAutoLogin.value = true;
+    // 自動完成登入流程（從 LINE 回到站台後不需再點一次）
+    await handleLineLogin();
+  }
 });
 
 const handleLineLogin = async () => {
