@@ -89,7 +89,8 @@ const handleLineLogin = async () => {
 
     const accessToken = liff.getAccessToken();
     const idToken = liff.getIDToken();
-    if (!accessToken && !idToken) {
+    const authCode = new URL(window.location.href).searchParams.get('code');
+    if (!accessToken && !idToken && !authCode) {
       console.warn('Missing LIFF tokens', {
         isLoggedIn: liff.isLoggedIn(),
         hasAccessToken: !!accessToken,
@@ -108,7 +109,9 @@ const handleLineLogin = async () => {
     const result = await verifyLineToken({
       lineAccessToken: accessToken,
       lineIdToken: idToken,
-      lineLoginChannelId: LINE_LOGIN_CHANNEL_ID
+      lineAuthCode: authCode,
+      lineLoginChannelId: LINE_LOGIN_CHANNEL_ID,
+      redirectUri: window.location.origin + window.location.pathname
     });
 
     const { token, isNewUser } = result.data as { token: string, isNewUser: boolean };

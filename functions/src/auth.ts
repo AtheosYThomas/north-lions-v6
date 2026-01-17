@@ -13,18 +13,39 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 export const verifyLineToken = functions.https.onCall(async (data: any, context) => {
-  const { lineAccessToken, lineIdToken, lineLoginChannelId } = data || {};
+  const { lineAccessToken, lineIdToken, lineLoginChannelId, lineAuthCode, redirectUri } = data || {};
 
-  if (!lineAccessToken && !lineIdToken) {
+  if (!lineAccessToken && !lineIdToken && !lineAuthCode) {
     throw new functions.https.HttpsError('invalid-argument', 'Missing LINE access token.');
   }
 
   try {
     // 1. Verify Token with LINE API
     let lineProfile: any;
-    if (lineAccessToken) {
+    let resolvedAccessToken = lineAccessToken;
+    if (!resolvedAccessToken && lineAuthCode) {
+      const channelId = process.env.LINE_LOGIN_CHANNEL_ID || process.env.LINE_CHANNEL_ID || lineLoginChannelId || '';
+      const channelSecret = process.env.LINE_CHANNEL_SECRET || process.env.CHANNEL_SECRET || '';
+      if (!channelId || !channelSecret || !redirectUri) {
+        throw new functions.https.HttpsError('failed-precondition', 'Missing LINE login config for code exchange.');
+      }
+      const tokenRes = await axios.post(
+        'https://api.line.me/oauth2/v2.1/token',
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: lineAuthCode,
+          redirect_uri: redirectUri,
+          client_id: channelId,
+          client_secret: channelSecret,
+        }).toString(),
+        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+      );
+      resolvedAccessToken = tokenRes.data?.access_token;
+    }
+
+    if (resolvedAccessToken) {
       const response = await axios.get('https://api.line.me/v2/profile', {
-        headers: { Authorization: `Bearer ${lineAccessToken}` },
+        headers: { Authorization: `Bearer ${resolvedAccessToken}` },
       });
       lineProfile = response.data;
     } else {
