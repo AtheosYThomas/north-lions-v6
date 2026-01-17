@@ -13,7 +13,7 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 export const verifyLineToken = functions.https.onCall(async (data: any, context) => {
-  const { lineAccessToken, lineIdToken } = data;
+  const { lineAccessToken, lineIdToken, lineLoginChannelId } = data || {};
 
   if (!lineAccessToken && !lineIdToken) {
     throw new functions.https.HttpsError('invalid-argument', 'Missing LINE access token.');
@@ -28,7 +28,7 @@ export const verifyLineToken = functions.https.onCall(async (data: any, context)
       });
       lineProfile = response.data;
     } else {
-      const channelId = process.env.LINE_LOGIN_CHANNEL_ID || process.env.LINE_CHANNEL_ID || '';
+      const channelId = process.env.LINE_LOGIN_CHANNEL_ID || process.env.LINE_CHANNEL_ID || lineLoginChannelId || '';
       if (!channelId) {
         throw new functions.https.HttpsError('failed-precondition', 'Missing LINE channel id for ID token verification.');
       }

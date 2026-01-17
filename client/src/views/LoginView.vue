@@ -48,6 +48,7 @@ const devEmail = ref('admin@example.com');
 const devPassword = ref('password123');
 
 const LIFF_ID = import.meta.env.VITE_LIFF_ID;
+const LINE_LOGIN_CHANNEL_ID = import.meta.env.VITE_LINE_LOGIN_CHANNEL_ID;
 
 // 初始化 LIFF 並檢查是否需要自動登入
 const initLiff = async () => {
@@ -57,7 +58,7 @@ const initLiff = async () => {
     return;
   }
   try {
-    await liff.init({ liffId: LIFF_ID });
+    await liff.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true });
 
     // [新增] 自動登入偵測：如果 LIFF 已經是登入狀態，直接執行後端驗證
     if (liff.isLoggedIn()) {
@@ -89,12 +90,26 @@ const handleLineLogin = async () => {
     const accessToken = liff.getAccessToken();
     const idToken = liff.getIDToken();
     if (!accessToken && !idToken) {
-      throw new Error('No Access Token');
+      console.warn('Missing LIFF tokens', {
+        isLoggedIn: liff.isLoggedIn(),
+        hasAccessToken: !!accessToken,
+        hasIdToken: !!idToken,
+        url: window.location.href
+      });
+      if (liff.isLoggedIn()) {
+        liff.logout();
+      }
+      liff.login({ redirectUri: window.location.href });
+      return;
     }
 
     const functions = getFunctions();
     const verifyLineToken = httpsCallable(functions, 'verifyLineToken');
-    const result = await verifyLineToken({ lineAccessToken: accessToken, lineIdToken: idToken });
+    const result = await verifyLineToken({
+      lineAccessToken: accessToken,
+      lineIdToken: idToken,
+      lineLoginChannelId: LINE_LOGIN_CHANNEL_ID
+    });
 
     const { token, isNewUser } = result.data as { token: string, isNewUser: boolean };
 
