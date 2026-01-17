@@ -50,19 +50,30 @@ const devPassword = ref('password123');
 const LIFF_ID = import.meta.env.VITE_LIFF_ID;
 const LINE_LOGIN_CHANNEL_ID = import.meta.env.VITE_LINE_LOGIN_CHANNEL_ID;
 
-// 初始化 LIFF 並檢查是否需要自動登入
+// 1. 在任何邏輯執行前，先搶救 URL 上的 Code
+// 避免 LIFF 初始化過程中清洗掉 URL 參數
+const rawUrl = new URL(window.location.href);
+const capturedCode = rawUrl.searchParams.get('code');
+const capturedState = rawUrl.searchParams.get('state');
+
 const initLiff = async () => {
   if (!LIFF_ID) {
-    console.warn('LIFF ID not set in .env');
     error.value = '系統設定錯誤 (Missing LIFF ID)';
     return;
   }
   try {
-    await liff.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true });
+    // 這裡不使用 withLoginOnExternalBrowser: true，避免自動跳轉干擾我們手動處理 Code
+    await liff.init({ liffId: LIFF_ID });
 
-    // [新增] 自動登入偵測：如果 LIFF 已經是登入狀態，直接執行後端驗證
-    if (liff.isLoggedIn()) {
-      console.log('LIFF already logged in, auto-verifying...');
+    // 自動登入判斷：
+    // 情況 A: 有 Code -> 優先處理 Code
+    if (capturedCode) {
+      console.log('Detected Auth Code, starting verification...');
+      await handleLineLogin();
+    }
+    // 情況 B: 沒 Code 但 LIFF 認為已登入 -> 處理 Token
+    else if (liff.isLoggedIn()) {
+      console.log('LIFF is logged in, auto-verifying...');
       await handleLineLogin();
     }
   } catch (err) {
@@ -80,63 +91,64 @@ const handleLineLogin = async () => {
   error.value = '';
 
   try {
-    if (!liff.isLoggedIn()) {
-      // [修正] 強制指定 redirectUri 為當前的 /login 頁面
-      // 這樣可以避免跳回首頁被 Guard 攔截導致參數遺失
+    // 準備傳送給後端的資料
+    let payload: any = {
+      lineLoginChannelId: LINE_LOGIN_CHANNEL_ID,
+      redirectUri: window.location.origin + window.location.pathname // 必須與 LINE Console 設定完全一致
+    };
+
+    // 策略一：優先使用 Auth Code (最強健的方式)
+    if (capturedCode) {
+      console.log('Using captured Auth Code flow');
+      payload.lineAuthCode = capturedCode;
+    }
+    // 策略二：使用 LIFF Access Token (備援)
+    else if (liff.isLoggedIn()) {
+      console.log('Using LIFF Access Token flow');
+      const accessToken = liff.getAccessToken();
+      const idToken = liff.getIDToken();
+      if (!accessToken) throw new Error('LIFF says logged in but no token found');
+      payload.lineAccessToken = accessToken;
+      payload.lineIdToken = idToken;
+    }
+    // 策略三：都沒登入 -> 觸發登入跳轉
+    else {
+      console.log('No credentials found, redirecting to LINE Login...');
+      // 這裡務必指定 redirectUri 為當前頁面，確保回來能抓到 Code
       liff.login({ redirectUri: window.location.href });
       return;
     }
 
-    const accessToken = liff.getAccessToken();
-    const idToken = liff.getIDToken();
-    const authCode = new URL(window.location.href).searchParams.get('code');
-    if (!accessToken && !idToken && !authCode) {
-      console.warn('Missing LIFF tokens', {
-        isLoggedIn: liff.isLoggedIn(),
-        hasAccessToken: !!accessToken,
-        hasIdToken: !!idToken,
-        url: window.location.href
-      });
-      if (liff.isLoggedIn()) {
-        liff.logout();
-      }
-      liff.login({ redirectUri: window.location.href });
-      return;
-    }
-
+    // 呼叫後端
     const functions = getFunctions();
     const verifyLineToken = httpsCallable(functions, 'verifyLineToken');
-    const result = await verifyLineToken({
-      lineAccessToken: accessToken,
-      lineIdToken: idToken,
-      lineAuthCode: authCode,
-      lineLoginChannelId: LINE_LOGIN_CHANNEL_ID,
-      redirectUri: window.location.origin + window.location.pathname
-    });
+    const result = await verifyLineToken(payload);
 
     const { token, isNewUser } = result.data as { token: string, isNewUser: boolean };
 
+    // Firebase 登入
     const auth = getAuth();
     await signInWithCustomToken(auth, token);
 
-    // 等待 user store 初始化 (抓取 Profile)
+    // 清除網址參數 (美觀與安全)
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    // 初始化使用者資料
     try {
       await userStore.initAuth();
     } catch (e) {
-      console.warn('initAuth failed after login', e);
+      console.warn('initAuth failed', e);
     }
 
-    if (isNewUser) {
-      router.push('/register');
-    } else {
-      router.push('/');
-    }
+    // 路由跳轉
+    router.push(isNewUser ? '/register' : '/');
 
   } catch (err: any) {
-    console.error(err);
-    // 若後端驗證失敗 (例如 500)，顯示錯誤並登出 LIFF 以便重試
+    console.error('Login Error:', err);
     error.value = err.message || '登入失敗';
-    if (liff.isLoggedIn()) {
+
+    // 如果是用 Token 失敗，可能 Token 過期，嘗試登出
+    if (liff.isLoggedIn() && !capturedCode) {
       liff.logout();
     }
   } finally {
@@ -145,21 +157,15 @@ const handleLineLogin = async () => {
 };
 
 const handleDevLogin = async () => {
+    // ... (保持原樣) ...
     loading.value = true;
-    error.value = '';
     try {
         const auth = getAuth();
         await signInWithEmailAndPassword(auth, devEmail.value, devPassword.value);
-
-        try {
-          await userStore.initAuth();
-        } catch (e) {
-          console.warn('initAuth failed after dev login', e);
-        }
+        await userStore.initAuth();
         router.push('/');
-    } catch (err: any) {
-        console.error(err);
-        error.value = err.message || '開發者登入失敗';
+    } catch (e: any) {
+        error.value = e.message;
     } finally {
         loading.value = false;
     }
