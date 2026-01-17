@@ -10,6 +10,7 @@ export const useUserStore = defineStore('user', () => {
   const currentUser = ref<Member | null>(null);
   const isAuthenticated = ref(false);
   const isLoading = ref(true);
+  const isInitialized = ref(false);
 
   function setUser(user: Member) {
     currentUser.value = user;
@@ -60,6 +61,7 @@ export const useUserStore = defineStore('user', () => {
           clearUser();
         }
         isLoading.value = false;
+        isInitialized.value = true;
         resolve();
         // We don't unsubscribe here because we want to listen for future changes
       });
@@ -72,5 +74,5 @@ export const useUserStore = defineStore('user', () => {
     clearUser();
   }
 
-  return { currentUser, isAuthenticated, isLoading, setUser, clearUser, initAuth, logout };
+  return { currentUser, isAuthenticated, isLoading, isInitialized, setUser, clearUser, initAuth, logout };
 });

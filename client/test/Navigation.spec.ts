@@ -63,21 +63,9 @@ describe('Navigation Guard', () => {
 
   it('allows access to protected route if authenticated', async () => {
     const store = useUserStore();
-    store.isAuthenticated = true; // Manually set auth state
-    store.isLoading = false;      // Ensure loading is false to bypass the await initAuth check in guard
-
-    // We need to bypass the real initAuth logic in the guard if we manually set state
-    // Or we mock onAuthStateChanged to return a user.
-    // Let's rely on the store state since the guard checks !store.isAuthenticated
-    
-    // However, the guard does: if (store.isLoading) await store.initAuth();
-    // So we must ensure store.initAuth() resolves.
-    // With our mock, it resolves immediately with null user (clearing user).
-    // So we need to be careful.
-    
-    // Better approach: Mock initAuth on the store instance itself? No, that's hard with Pinia.
-    // Let's just set isLoading = false. 
-    // If isLoading is false, the guard skips await store.initAuth().
+    store.currentUser = { uid: 'test', email: 'test@example.com' } as any;
+    store.isInitialized = true;
+    store.isLoading = false;
     
     await router.push('/');
     expect(router.currentRoute.value.name).toBe('dashboard');

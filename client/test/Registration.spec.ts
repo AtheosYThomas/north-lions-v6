@@ -31,6 +31,7 @@ vi.mock('firebase/firestore', () => ({
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn() }),
+  useRoute: () => ({ query: {} }),
 }));
 
 describe('RegisterView', () => {

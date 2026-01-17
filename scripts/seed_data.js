@@ -5,7 +5,7 @@ const { getFirestore } = require('firebase-admin/firestore');
 
 // Set env vars to point to emulators (respect existing environment values)
 process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || 'localhost:9099';
-process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || 'localhost:8080';
+process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || 'localhost:8081';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'north-lions-v6-a7757';
 
 initializeApp({
