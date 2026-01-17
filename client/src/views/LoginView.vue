@@ -87,13 +87,14 @@ const handleLineLogin = async () => {
     }
 
     const accessToken = liff.getAccessToken();
-    if (!accessToken) {
+    const idToken = liff.getIDToken();
+    if (!accessToken && !idToken) {
       throw new Error('No Access Token');
     }
 
     const functions = getFunctions();
     const verifyLineToken = httpsCallable(functions, 'verifyLineToken');
-    const result = await verifyLineToken({ lineAccessToken: accessToken });
+    const result = await verifyLineToken({ lineAccessToken: accessToken, lineIdToken: idToken });
 
     const { token, isNewUser } = result.data as { token: string, isNewUser: boolean };
 

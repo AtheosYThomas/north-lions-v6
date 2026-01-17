@@ -13,23 +13,35 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 export const verifyLineToken = functions.https.onCall(async (data: any, context) => {
-  const { lineAccessToken } = data;
+  const { lineAccessToken, lineIdToken } = data;
 
-  if (!lineAccessToken) {
+  if (!lineAccessToken && !lineIdToken) {
     throw new functions.https.HttpsError('invalid-argument', 'Missing LINE access token.');
   }
 
   try {
     // 1. Verify Token with LINE API
-    const response = await axios.get('https://api.line.me/v2/profile', {
-      headers: { Authorization: `Bearer ${lineAccessToken}` },
-    });
+    let lineProfile: any;
+    if (lineAccessToken) {
+      const response = await axios.get('https://api.line.me/v2/profile', {
+        headers: { Authorization: `Bearer ${lineAccessToken}` },
+      });
+      lineProfile = response.data;
+    } else {
+      const channelId = process.env.LINE_LOGIN_CHANNEL_ID || process.env.LINE_CHANNEL_ID || '';
+      if (!channelId) {
+        throw new functions.https.HttpsError('failed-precondition', 'Missing LINE channel id for ID token verification.');
+      }
+      const response = await axios.get('https://api.line.me/oauth2/v2.1/verify', {
+        params: { id_token: lineIdToken, client_id: channelId },
+      });
+      lineProfile = response.data;
+    }
 
-    const lineProfile = response.data;
-    const lineUserId = lineProfile.userId;
-    const displayName = lineProfile.displayName;
-    const pictureUrl = lineProfile.pictureUrl;
-    const email = lineProfile.email; 
+    const lineUserId = lineProfile.userId || lineProfile.sub;
+    const displayName = lineProfile.displayName || lineProfile.name;
+    const pictureUrl = lineProfile.pictureUrl || lineProfile.picture;
+    const email = lineProfile.email;
 
     // 2. Check if user exists in Firestore
     const membersRef = db.collection('members');
