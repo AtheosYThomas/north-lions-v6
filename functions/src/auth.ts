@@ -119,8 +119,11 @@ export const verifyLineToken = functions.https.onCall(async (data: any, context)
 
     return { token: customToken, isNewUser };
 
-  } catch (error) {
-    console.error('LINE Login Error:', error);
+  } catch (error: any) {
+    if (axios.isAxiosError(error) && error.response) {
+      console.error('LINE Token Exchange Error (詳細):', JSON.stringify(error.response.data));
+    }
+    console.error('LINE Login Error (原始):', error);
     throw new functions.https.HttpsError('internal', 'Failed to verify LINE token.');
   }
 });
