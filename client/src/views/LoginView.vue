@@ -54,7 +54,6 @@ const LINE_LOGIN_CHANNEL_ID = import.meta.env.VITE_LINE_LOGIN_CHANNEL_ID;
 // 避免 LIFF 初始化過程中清洗掉 URL 參數
 const rawUrl = new URL(window.location.href);
 const capturedCode = rawUrl.searchParams.get('code');
-const capturedState = rawUrl.searchParams.get('state');
 
 const initLiff = async () => {
   if (!LIFF_ID) {
