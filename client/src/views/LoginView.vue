@@ -41,6 +41,7 @@ const loading = ref(false);
 const error = ref('');
 const router = useRouter();
 const userStore = useUserStore();
+const hasVerified = ref(false);
 
 // Dev Login
 const showDevLogin = import.meta.env.DEV;
@@ -66,12 +67,12 @@ const initLiff = async () => {
 
     // 自動登入判斷：
     // 情況 A: 有 Code -> 優先處理 Code
-    if (capturedCode) {
+    if (capturedCode && !hasVerified.value) {
       console.log('Detected Auth Code, starting verification...');
       await handleLineLogin();
     }
     // 情況 B: 沒 Code 但 LIFF 認為已登入 -> 處理 Token
-    else if (liff.isLoggedIn()) {
+    else if (liff.isLoggedIn() && !hasVerified.value) {
       console.log('LIFF is logged in, auto-verifying...');
       await handleLineLogin();
     }
@@ -86,6 +87,8 @@ onMounted(() => {
 });
 
 const handleLineLogin = async () => {
+  if (hasVerified.value) return;
+  hasVerified.value = true;
   loading.value = true;
   error.value = '';
 
