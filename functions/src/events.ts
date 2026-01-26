@@ -98,7 +98,7 @@ export const updateEvent = functions.https.onCall(async (data: any, context: any
 });
 
 // Trigger: On Event Created
-export const onEventCreated = onDocumentCreated("events/{eventId}", async (event) => {
+export const onEventCreatedTrigger = onDocumentCreated("events/{eventId}", async (event) => {
     const snap = event.data;
     if (!snap) {
         console.log("No data associated with the event");
