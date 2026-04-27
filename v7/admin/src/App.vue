@@ -29,6 +29,7 @@ const handleLogout = async () => {
               <router-link to="/reconciliation" class="hover:text-white px-2 py-1 rounded transition whitespace-nowrap" active-class="bg-indigo-700/50 text-white font-bold">財務對帳</router-link>
               <router-link to="/donations" class="hover:text-white px-2 py-1 rounded transition whitespace-nowrap" active-class="bg-indigo-700/50 text-white font-bold">帳目總表</router-link>
               <router-link to="/feedbacks" class="hover:text-white px-2 py-1 rounded transition whitespace-nowrap" active-class="bg-indigo-700/50 text-white font-bold">對話反饋</router-link>
+              <router-link to="/chat-logs" class="hover:text-white px-2 py-1 rounded transition whitespace-nowrap" active-class="bg-indigo-700/50 text-white font-bold">會員對話紀錄</router-link>
             </div>
           </div>
           <div class="flex items-center gap-3 sm:gap-4 shrink-0">

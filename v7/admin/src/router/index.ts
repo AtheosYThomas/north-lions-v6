@@ -51,6 +51,12 @@ const router = createRouter({
       name: 'feedbacks',
       component: () => import('../views/FeedbacksView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/chat-logs',
+      name: 'chat-logs',
+      component: () => import('../views/ChatLogsView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
     }
   ]
 });
