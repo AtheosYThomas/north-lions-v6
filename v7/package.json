@@ -1,0 +1,26 @@
+{
+  "name": "north-lions-v7",
+  "private": true,
+  "workspaces": [
+    "client",
+    "functions",
+    "shared",
+    "admin"
+  ],
+  "scripts": {
+    "dev:client": "npm run dev -w client",
+    "dev:admin": "npm run dev -w admin",
+    "dev:functions": "npm run serve -w functions",
+    "build:client": "npm run build -w client",
+    "build:functions": "npm run build -w functions",
+    "build:admin": "npm run build -w admin",
+    "build:all": "npm run build:client && npm run build:admin && npm run build:functions",
+    "typecheck:client": "npm run typecheck -w client",
+    "typecheck:admin": "npm run typecheck -w admin",
+    "typecheck:functions": "npm run typecheck -w functions",
+    "typecheck": "npm run typecheck:client && npm run typecheck:admin && npm run typecheck:functions",
+    "test:client": "npm run test -w client",
+    "test:functions": "npm run test -w functions",
+    "test": "npm run test:client && npm run test:functions"
+  }
+}
