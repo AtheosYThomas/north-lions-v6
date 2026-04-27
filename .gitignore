@@ -20,3 +20,9 @@ scripts/run_callable_test.js
 scripts/run_e2e.ps1
 scripts/seed_*.js
 functions/shared-*.tgz
+
+# TypeScript compiled output
+v7/functions/lib/
+
+# Local logs
+v7/logs.txt
