@@ -1,8 +1,8 @@
 {
   "functions": [
     {
-      "source": "functions",
-      "runtime": "nodejs24",
+      "source": "v7/functions",
+      "runtime": "nodejs20",
       "codebase": "default",
       "ignore": [
         "node_modules",
@@ -16,13 +16,21 @@
     }
   ],
   "hosting": {
-    "public": "client/dist",
+    "public": "v7/client/dist",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
     ],
     "rewrites": [
+      {
+        "source": "/webhook",
+        "function": "lineWebhook"
+      },
+      {
+        "source": "/admin/**",
+        "destination": "/admin/index.html"
+      },
       {
         "source": "**",
         "destination": "/index.html"
@@ -45,6 +53,9 @@
     },
     "firestore": {
       "port": 8081
+    },
+    "storage": {
+      "port": 9199
     },
     "ui": {
       "enabled": false,
