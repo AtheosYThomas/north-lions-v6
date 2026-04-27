@@ -47,6 +47,19 @@ export const pushMessage = async (to: string, messages: LineMessage[]) => {
   }
 };
 
+export const startLoadingIndicator = async (chatId: string, loadingSeconds = 8) => {
+  const token = getLineChannelAccessToken();
+  if (!token || !chatId) return;
+  try {
+    await createClient(token).post('/chat/loading/start', {
+      chatId,
+      loadingSeconds
+    });
+  } catch (error: any) {
+    console.error('Error starting loading indicator:', error.response?.data || error.message);
+  }
+};
+
 export const broadcastMessage = async (messages: LineMessage[], filterPending: boolean = true) => {
   const token = getLineChannelAccessToken();
   if (!token) return;

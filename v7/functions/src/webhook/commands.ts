@@ -19,6 +19,19 @@ type HandleTextCommandInput = {
 export async function handleTextCommand(input: HandleTextCommandInput): Promise<boolean> {
   const { db, event, content, lineUserId, replyToken, memberProfile, fetchEventsByIds, logDetailedError } = input;
   const memberName = memberProfile.memberName;
+  const normalizedContent = content.trim().toLowerCase();
+
+  // Fast-path health check command. We return immediately and never invoke AI.
+  if (normalizedContent === 'ping') {
+    const eventTimestamp = Number((event as any)?.timestamp || 0);
+    const latencyMs = eventTimestamp > 0 ? Math.max(0, Date.now() - eventTimestamp) : null;
+    const latencyText = latencyMs === null ? 'N/A' : `${latencyMs}ms`;
+    await replyMessage(replyToken, [{
+      type: 'text',
+      text: `🟢 V7 系統運作正常\n連線延遲：${latencyText}\n智慧助理隨時為您服務！`
+    }]);
+    return true;
+  }
 
   if (content === '測試') {
     await replyMessage(replyToken, [{ type: 'text', text: `V7 系統 Webhook 運作正常！userId 為 ${lineUserId}` }]);
@@ -88,16 +101,11 @@ export async function handleTextCommand(input: HandleTextCommandInput): Promise<
     return true;
   }
 
-  if (['help', '幫助', '指令'].includes(content.toLowerCase())) {
+  if (['help', '幫助', '指令'].includes(normalizedContent)) {
     await replyMessage(replyToken, [{
       type: 'text',
       text: '🦁 北大獅子會 V7 可用指令：\n- 最新公告：查詢最新公告\n- 最新活動查詢：查看近期活動\n- 我的資料：查詢個人資料\n- 我的報名：查詢活動報名狀態'
     }]);
-    return true;
-  }
-
-  if (content.toLowerCase() === 'ping') {
-    await replyMessage(replyToken, [{ type: 'text', text: 'pong from V7 Backend!' }]);
     return true;
   }
 

@@ -3,7 +3,7 @@ import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { getFunctions } from 'firebase-admin/functions';
 import * as admin from 'firebase-admin';
 import * as line from '@line/bot-sdk';
-import { replyMessage } from './line';
+import { replyMessage, startLoadingIndicator } from './line';
 import * as dotenv from 'dotenv';
 import * as logger from 'firebase-functions/logger';
 import { handleTextCommand } from './webhook/commands';
@@ -116,6 +116,106 @@ function buildMembersDirectoryFlex(total: number): line.FlexMessage {
       }
     } as any
   };
+}
+
+function buildUnboundMemberFlex(registerUrl: string): line.FlexMessage {
+  return {
+    type: 'flex',
+    altText: '需要綁定獅友身分',
+    contents: {
+      type: 'bubble',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#4F46E5',
+        paddingAll: 'lg',
+        contents: [
+          {
+            type: 'text',
+            text: '需要綁定獅友身分',
+            color: '#FFFFFF',
+            weight: 'bold',
+            size: 'md',
+            wrap: true
+          }
+        ]
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: '為了保護會員隱私與系統安全，請先完成身分綁定。',
+            size: 'sm',
+            color: '#374151',
+            wrap: true
+          }
+        ]
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            color: '#4F46E5',
+            action: {
+              type: 'uri',
+              label: '立即綁定',
+              uri: registerUrl
+            }
+          },
+          {
+            type: 'text',
+            text: '綁定完成後，即可解鎖完整功能。',
+            size: 'xs',
+            color: '#6B7280',
+            wrap: true,
+            align: 'center'
+          }
+        ]
+      }
+    } as any
+  };
+}
+
+function buildActionableErrorMessage(): line.TextMessage {
+  return {
+    type: 'text',
+    text: '系統稍有延遲，請稍後再試。',
+    quickReply: {
+      items: [
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '重新嘗試',
+            text: 'ping'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '聯絡幹部',
+            text: '聯絡幹部'
+          }
+        },
+        {
+          type: 'action',
+          action: {
+            type: 'message',
+            label: '查看常見問題',
+            text: '查看常見問題'
+          }
+        }
+      ]
+    }
+  } as line.TextMessage;
 }
 
 function buildEventDedupKey(event: line.WebhookEvent): string {
@@ -272,7 +372,7 @@ async function handleEvent(event: line.WebhookEvent, db: admin.firestore.Firesto
       userId: (event as any)?.source?.userId
     });
     if (replyToken) {
-      await replyMessage(replyToken, [{ type: 'text', text: '系統查詢資料時發生錯誤，請稍後再試。' }]);
+      await replyMessage(replyToken, [buildActionableErrorMessage()]);
     }
   }
 }
@@ -322,10 +422,7 @@ async function handleTextMessageEvent(
     if (replyToken) {
       if (!isMemberFound) {
          const registerUrl = process.env.VITE_LIFF_URL ? process.env.VITE_LIFF_URL.trim() : 'https://north-lions-v6-a7757.web.app';
-         await replyMessage(replyToken, [{
-           type: 'text',
-           text: `您好！感謝您傳訊給北大獅子會。\n\n為了提供您專屬的會員服務，請先完成會員綁定：\n${registerUrl}\n\n完成後即可使用完整功能。`
-         }]);
+         await replyMessage(replyToken, [buildUnboundMemberFlex(registerUrl)]);
          return;
       }
 
@@ -342,6 +439,7 @@ async function handleTextMessageEvent(
       if (handledByCommand) return;
 
       if (event.source.type === 'user') {
+        await startLoadingIndicator(lineUserId, 8);
         const aiResult = await generateAiResponse({
           db,
           userText: content,
