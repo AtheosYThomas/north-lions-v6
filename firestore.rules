@@ -8,14 +8,60 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Consider user an officer/admin if either users/{uid} or members/{uid} has role == 'admin'
+    // ── isOfficer：與 v7/client/src/stores/auth.ts 的 isAdmin 完全對齊 ─────────
+    // 1) uid === 'dev-admin'
+    // 2) Firebase Auth token.email === 'admin@example.com'
+    // 3) members/{uid}：system.role 或 role（字串，不分大小寫）為 admin
+    // 4) members/{uid}：position 字串含「會長」「秘書」「財務」之一
+    // 注意：不再讀取 users/{uid} 判斷幹部，因前端 isAdmin 未使用該集合。
+
+    function memberDoc() {
+      return get(/databases/$(database)/documents/members/$(request.auth.uid)).data;
+    }
+
+    function memberHasAdminRole(data) {
+      return ('system' in data && data.system is map
+              && 'role' in data.system
+              && data.system.role is string
+              && data.system.role.lower() == 'admin')
+          || ('role' in data && data.role is string && data.role.lower() == 'admin');
+    }
+
+    function memberHasOfficerPosition(data) {
+      return 'position' in data
+          && data.position is string
+          && (data.position.matches('.*會長.*')
+              || data.position.matches('.*秘書.*')
+              || data.position.matches('.*財務.*'));
+    }
+
+    function memberDocGrantsOfficer() {
+      return exists(/databases/$(database)/documents/members/$(request.auth.uid))
+          && (memberHasAdminRole(memberDoc()) || memberHasOfficerPosition(memberDoc()));
+    }
+
+    function authEmailIsExampleAdmin() {
+      return 'email' in request.auth.token
+          && request.auth.token.email is string
+          && request.auth.token.email == 'admin@example.com';
+    }
+
     function isOfficer() {
       return isAuthenticated() && (
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).exists() &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-        (get(/databases/$(database)/documents/members/$(request.auth.uid)).exists() &&
-          get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role == 'admin')
+        request.auth.uid == 'dev-admin' ||
+        authEmailIsExampleAdmin() ||
+        memberDocGrantsOfficer()
       );
+    }
+
+    // Check if user is an official member
+    function isOfficialMember() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/members/$(request.auth.uid)) &&
+        (get(/databases/$(database)/documents/members/$(request.auth.uid)).data.status.membershipType == '正會員' ||
+         get(/databases/$(database)/documents/members/$(request.auth.uid)).data.status.membershipType == '創會會員' ||
+         get(/databases/$(database)/documents/members/$(request.auth.uid)).data.status.membershipType == '贊助會員' ||
+         get(/databases/$(database)/documents/members/$(request.auth.uid)).data.status.membershipType == '正式');
     }
 
     // Default: deny everything unless matched below
@@ -29,22 +75,65 @@ service cloud.firestore {
       allow write: if isOfficer();
     }
 
-    // Users: owner or officer may read; only officer may write
-    match /users/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || isOfficer());
+    // Announcements: authenticated users may read; only officers may write
+    match /announcements/{announcementId} {
+      allow read: if isAuthenticated();
       allow write: if isOfficer();
     }
 
-    // Members: owner or officer may read/write; officers may write any
-    match /members/{memberId} {
-      allow read: if request.auth != null && (request.auth.uid == memberId || isOfficer());
-      allow write: if request.auth != null && (request.auth.uid == memberId || isOfficer());
+    // Users: owner or officer may read; only officer may write
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isOfficer());
+      allow write: if isOfficer();
     }
 
-    // Registrations: anyone can create (allow public signups), officers manage
+    // Members: all authenticated users may read; owner or officer may write
+    match /members/{memberId} {
+      allow read: if isOfficer() || isOfficialMember() || request.auth.uid == memberId;
+      allow write: if isAuthenticated() && (request.auth.uid == memberId || isOfficer());
+    }
+
+    // Registrations: anyone can create/read, officers manage, users can manage their own
     match /registrations/{regId} {
-      allow create: if true;
-      allow read, update, delete: if isOfficer();
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow update, delete: if isOfficer() || (isAuthenticated() && resource.data.info.memberId == request.auth.uid);
+    }
+
+    // Donations: only officers can write, owners and officers can read
+    match /donations/{donationId} {
+      allow read: if isOfficer() || (isAuthenticated() && resource.data.memberId == request.auth.uid);
+      allow write: if isOfficer();
+    }
+
+    // Billing Campaigns: only officers can write, all authenticated can read
+    match /billing_campaigns/{campaignId} {
+      allow read: if isAuthenticated();
+      allow write: if isOfficer();
+    }
+
+    // Billing Records: officers can read/write. Owners can read and update their own
+    match /billing_records/{recordId} {
+      allow read: if isOfficer() || (isAuthenticated() && resource.data.memberId == request.auth.uid);
+      allow create, delete: if isOfficer();
+      allow update: if isOfficer() || (isAuthenticated() && resource.data.memberId == request.auth.uid);
+    }
+
+    // Notifications: users can read their own or broadcast notifications; only officers can write
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.userId == 'all' ||
+        (isOfficer() && resource.data.userId == 'admin')
+      );
+      allow write: if isOfficer();
+    }
+
+    // Chat/message logs: only officers can read from admin feedback console
+    // Webhook writes use Admin SDK and bypass security rules.
+    match /message_logs/{logId} {
+      allow read: if isOfficer();
+      allow write: if false;
     }
   }
 }

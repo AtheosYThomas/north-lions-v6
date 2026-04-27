@@ -14,7 +14,9 @@
     "build": "npm run build:client && npm run build:functions",
     "deploy:functions": "node scripts/deploy_functions.js",
     "deploy:hosting": "npm run build:client && firebase deploy --only hosting",
-    "deploy": "npm run build:client && npm run deploy:functions && firebase deploy --except functions"
+    "deploy": "npm run build:client && npm run deploy:functions && firebase deploy --except functions",
+    "test:rules": "mocha tests/firestore.rules.test.js --timeout 15000 --reporter spec",
+    "test:rules:watch": "mocha tests/firestore.rules.test.js --timeout 15000 --reporter spec --watch"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",
@@ -23,6 +25,7 @@
     "playwright": "^1.57.0"
   },
   "dependencies": {
+    "axios": "^1.15.2",
     "firebase-tools": "^15.2.1"
   }
 }

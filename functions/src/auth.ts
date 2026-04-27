@@ -29,18 +29,23 @@ export const verifyLineToken = functions.https.onCall(async (data: any, context)
       if (!channelId || !channelSecret || !redirectUri) {
         throw new functions.https.HttpsError('failed-precondition', 'Missing LINE login config for code exchange.');
       }
-      const tokenRes = await axios.post(
-        'https://api.line.me/oauth2/v2.1/token',
-        new URLSearchParams({
-          grant_type: 'authorization_code',
-          code: lineAuthCode,
-          redirect_uri: redirectUri,
-          client_id: channelId,
-          client_secret: channelSecret,
-        }).toString(),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-      );
-      resolvedAccessToken = tokenRes.data?.access_token;
+      try {
+        const tokenRes = await axios.post(
+          'https://api.line.me/oauth2/v2.1/token',
+          new URLSearchParams({
+            grant_type: 'authorization_code',
+            code: lineAuthCode,
+            redirect_uri: redirectUri,
+            client_id: channelId,
+            client_secret: channelSecret,
+          }).toString(),
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        );
+        resolvedAccessToken = tokenRes.data?.access_token;
+      } catch (error: any) {
+        console.error('LINE Token Exchange Error:', error?.response?.data || error?.message || error);
+        throw new functions.https.HttpsError('invalid-argument', 'Missing LINE access token');
+      }
     }
 
     if (resolvedAccessToken) {
@@ -114,8 +119,11 @@ export const verifyLineToken = functions.https.onCall(async (data: any, context)
 
     return { token: customToken, isNewUser };
 
-  } catch (error) {
-    console.error('LINE Login Error:', error);
+  } catch (error: any) {
+    if (axios.isAxiosError(error) && error.response) {
+      console.error('LINE Token Exchange Error (詳細):', JSON.stringify(error.response.data));
+    }
+    console.error('LINE Login Error (原始):', error);
     throw new functions.https.HttpsError('internal', 'Failed to verify LINE token.');
   }
 });
