@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onErrorCaptured, onMounted, ref } from 'vue';
 import { useChatLogsStore, type ChatLogRecord, type ChatLogTimeRange } from '../stores/chatLogs';
 import { useMembersStore } from '../stores/members';
 
@@ -16,6 +16,7 @@ const chatLogsStore = useChatLogsStore();
 const membersStore = useMembersStore();
 const keyword = ref('');
 const selectedTimeRange = ref<ChatLogTimeRange>('all');
+const fatalError = ref('');
 
 const memberNameByLineId = computed<Record<string, string>>(() => {
   const map: Record<string, string> = {};
@@ -68,9 +69,10 @@ const resolveMemberLabel = (log: ChatLogRecord) => {
 
 const allConversationRows = computed<ConversationRow[]>(() => {
   const rows: ConversationRow[] = [];
-  const logs = chatLogsStore.logs;
+  const logs = Array.isArray(chatLogsStore.logs) ? chatLogsStore.logs : [];
   for (let i = 0; i < logs.length; i++) {
     const log = logs[i];
+    if (!log || typeof log !== 'object') continue;
     if (log.role !== 'user') continue;
     const userKey = String(log.lineUserId || log.memberId || '');
     let replyText = '-';
@@ -85,14 +87,18 @@ const allConversationRows = computed<ConversationRow[]>(() => {
         break;
       }
     }
-    rows.push({
-      id: log.id,
-      timestamp: log.timestamp,
-      memberLabel: resolveMemberLabel(log),
-      sourceType: log.sourceType,
-      userText: log.text || '-',
-      replyText
-    });
+    try {
+      rows.push({
+        id: String(log.id || `${i}`),
+        timestamp: log.timestamp,
+        memberLabel: resolveMemberLabel(log),
+        sourceType: log.sourceType || 'unknown',
+        userText: String(log.text || '-'),
+        replyText: String(replyText || '-')
+      });
+    } catch (e) {
+      console.error('[ChatLogsView] failed to map row', e, log);
+    }
   }
   return rows;
 });
@@ -118,9 +124,21 @@ const handleTimeRangeChange = async () => {
   await chatLogsStore.setTimeRange(selectedTimeRange.value);
 };
 
-onMounted(() => {
-  chatLogsStore.fetchLogs(50);
-  membersStore.fetchMembers();
+onErrorCaptured((err, _instance, info) => {
+  console.error('[ChatLogsView] render error captured', err, info);
+  fatalError.value = '頁面資料格式異常，請重新整理或稍後再試。';
+  return false;
+});
+
+onMounted(async () => {
+  try {
+    await Promise.all([
+      chatLogsStore.fetchLogs(50),
+      membersStore.fetchMembers()
+    ]);
+  } catch (e) {
+    console.error('[ChatLogsView] onMounted failed', e);
+  }
 });
 </script>
 
@@ -153,7 +171,10 @@ onMounted(() => {
       </div>
     </div>
 
-    <div v-if="chatLogsStore.loading" class="bg-white rounded-xl border border-gray-100 p-6 text-sm text-gray-500">
+    <div v-if="fatalError" class="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+      {{ fatalError }}
+    </div>
+    <div v-else-if="chatLogsStore.loading" class="bg-white rounded-xl border border-gray-100 p-6 text-sm text-gray-500">
       載入紀錄中...
     </div>
     <div v-else-if="chatLogsStore.error" class="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
