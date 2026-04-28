@@ -40,7 +40,7 @@ jobs:
         working-directory: v7
 
       - name: Ensure native build bindings on Linux runners
-        run: npm i --no-save @rolldown/binding-linux-x64-gnu lightningcss-linux-x64-gnu
+        run: npm i --no-save @rolldown/binding-linux-x64-gnu lightningcss-linux-x64-gnu @tailwindcss/oxide-linux-x64-gnu
         working-directory: v7
 
       - name: Typecheck v7 (client, admin, functions)
@@ -89,7 +89,7 @@ jobs:
         working-directory: v7
 
       - name: Ensure native build bindings on Linux runners
-        run: npm i --no-save @rolldown/binding-linux-x64-gnu lightningcss-linux-x64-gnu
+        run: npm i --no-save @rolldown/binding-linux-x64-gnu lightningcss-linux-x64-gnu @tailwindcss/oxide-linux-x64-gnu
         working-directory: v7
 
       - name: Build v7 client + admin
