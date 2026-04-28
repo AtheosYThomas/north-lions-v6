@@ -1,7 +1,7 @@
 <template>
   <div class="flex justify-center flex-col items-center h-[calc(100vh-140px)]">
     <div class="bg-white p-8 rounded-lg shadow-md w-96 text-center">
-      <h2 class="text-xl font-bold mb-6 text-gray-800">系統登入 (V7)</h2>
+      <h2 class="text-xl font-bold mb-6 text-gray-800">系統登入</h2>
       
       <button 
         @click="loginWithLine" 

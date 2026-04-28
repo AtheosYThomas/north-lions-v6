@@ -7,7 +7,7 @@
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
     </svg>
-    <p class="text-sm text-gray-500 font-medium tracking-wide">北大獅子會 V7 — 連線中...</p>
+    <p class="text-sm text-gray-500 font-medium tracking-wide">北大獅子會系統 — 連線中...</p>
   </div>
 
   <!-- ── Auth 初始化完成：渲染正式 UI ────────────────────────────────────── -->
@@ -15,7 +15,7 @@
     <!-- Navbar -->
     <header class="bg-indigo-700 text-white shadow-md relative z-50">
       <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-        <router-link to="/" class="text-xl font-bold tracking-tight hover:text-gray-200 shrink-0">北大獅子會 V7</router-link>
+        <router-link to="/" class="text-xl font-bold tracking-tight hover:text-gray-200 shrink-0">北大獅子會系統</router-link>
         
         <div class="flex items-center gap-2 md:gap-4">
           <!-- Notification Bell -->
@@ -136,7 +136,7 @@
 
     <!-- Footer -->
     <footer class="bg-gray-800 text-white text-center py-4 mt-auto">
-      <p class="text-sm">© {{ new Date().getFullYear() }} 北大獅子會 V7 測試版</p>
+      <p class="text-sm">© {{ new Date().getFullYear() }} 北大獅子會系統</p>
     </footer>
   </div>
 </template>

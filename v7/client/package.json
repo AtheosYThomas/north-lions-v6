@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node ../scripts/verifyFirebaseEnv.cjs client",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc -b --noEmit",
@@ -12,7 +13,8 @@
     "test:e2e": "playwright test",
     "test:e2e:guest": "playwright test e2e/mobile-nav.spec.ts --grep \"手機版導覽列\"",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "diag:admin-chatlogs": "node ./scripts/diag-admin-chatlogs.mjs"
   },
   "dependencies": {
     "@line/liff": "^2.28.0",

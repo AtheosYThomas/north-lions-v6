@@ -65,7 +65,7 @@ async function writeChatLog(
 function buildMembersDirectoryFlex(total: number): line.FlexMessage {
   return {
     type: 'flex',
-    altText: '北大獅子會 V7 會員名冊',
+    altText: '北大獅子會會員名冊',
     contents: {
       type: 'bubble',
       header: {
@@ -76,7 +76,7 @@ function buildMembersDirectoryFlex(total: number): line.FlexMessage {
         contents: [
           {
             type: 'text',
-            text: '北大獅子會 V7 會員名冊',
+            text: '北大獅子會會員名冊',
             color: '#FFFFFF',
             weight: 'bold',
             size: 'md',

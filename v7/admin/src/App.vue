@@ -1,9 +1,24 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useAuthStore } from './stores/auth';
 import { useRouter } from 'vue-router';
+import { getMemberSiteUrl } from './lib/publicSiteUrl';
 
 const authStore = useAuthStore();
 const router = useRouter();
+const memberSiteUrl = computed(() =>
+  getMemberSiteUrl(typeof window !== 'undefined' ? window.location.hostname : undefined),
+);
+
+const handleBackToMain = () => {
+  if (typeof window === 'undefined') return;
+  // If admin was opened in a child tab, close it and reveal main-site tab.
+  if (window.opener && !window.opener.closed) {
+    window.close();
+    return;
+  }
+  window.location.href = `${memberSiteUrl.value}/`;
+};
 
 const handleLogout = async () => {
   await authStore.logout();
@@ -28,15 +43,19 @@ const handleLogout = async () => {
               <router-link to="/billing" class="hover:text-white px-2 py-1 rounded transition whitespace-nowrap" active-class="bg-indigo-700/50 text-white font-bold">批次帳單</router-link>
               <router-link to="/reconciliation" class="hover:text-white px-2 py-1 rounded transition whitespace-nowrap" active-class="bg-indigo-700/50 text-white font-bold">財務對帳</router-link>
               <router-link to="/donations" class="hover:text-white px-2 py-1 rounded transition whitespace-nowrap" active-class="bg-indigo-700/50 text-white font-bold">帳目總表</router-link>
-              <router-link to="/feedbacks" class="hover:text-white px-2 py-1 rounded transition whitespace-nowrap" active-class="bg-indigo-700/50 text-white font-bold">對話反饋</router-link>
+              <router-link to="/feedbacks" class="hover:text-white px-2 py-1 rounded transition whitespace-nowrap" active-class="bg-indigo-700/50 text-white font-bold">系統反饋與建議</router-link>
               <router-link to="/chat-logs" class="hover:text-white px-2 py-1 rounded transition whitespace-nowrap" active-class="bg-indigo-700/50 text-white font-bold">會員對話紀錄</router-link>
             </div>
           </div>
           <div class="flex items-center gap-3 sm:gap-4 shrink-0">
-            <a href="/" class="flex text-sm text-indigo-300 hover:text-white transition font-medium items-center gap-1">
+            <button
+              type="button"
+              @click="handleBackToMain"
+              class="flex text-sm text-indigo-300 hover:text-white transition font-medium items-center gap-1"
+            >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
               回前台
-            </a>
+            </button>
             <span class="text-sm text-indigo-200">Hi, Admin</span>
             <button @click="handleLogout" class="text-sm bg-indigo-800 hover:bg-indigo-700 px-4 py-2 rounded-lg transition font-medium">登出</button>
           </div>

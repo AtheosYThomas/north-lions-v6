@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore, waitForAuth } from '../stores/auth';
 
 const router = createRouter({
-  history: createWebHistory('/admin/'), // Base path for admin
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/login',
@@ -61,16 +61,35 @@ const router = createRouter({
   ]
 });
 
+router.onError((error, to) => {
+  const message = String((error as any)?.message || error || '');
+  const chunkLoadFailed =
+    /Failed to fetch dynamically imported module/i.test(message) ||
+    /Importing a module script failed/i.test(message);
+  if (!chunkLoadFailed || typeof window === 'undefined') return;
+
+  // Prevent infinite reload loops if the new build is unavailable.
+  const guardKey = `admin:chunk-reload:${to.fullPath}`;
+  if (window.sessionStorage.getItem(guardKey)) return;
+  window.sessionStorage.setItem(guardKey, '1');
+  window.location.replace(to.fullPath);
+});
+
 router.beforeEach(async (to, _from, next) => {
+  const liffState = to.query['liff.state'] as string;
+  if (liffState && typeof liffState === 'string' && liffState.includes('login') && to.path !== '/login') {
+    next({ path: '/login', query: { ...to.query } });
+    return;
+  }
+
   await waitForAuth();
   const authStore = useAuthStore();
 
   if (to.meta.requiresAuth && !authStore.user) {
     next({ name: 'login' });
   } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
-    alert('Access denied. Admin only.');
-    authStore.logout();
-    next({ name: 'login' });
+    alert('您沒有管理權限，無法存取此頁面。');
+    next({ name: 'dashboard' });
   } else if (to.meta.requiresGuest && authStore.user) {
     next({ name: 'dashboard' });
   } else {

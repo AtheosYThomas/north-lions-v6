@@ -1,7 +1,7 @@
 <template>
   <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8 text-left animate-fade-in">
     <div class="mb-10">
-      <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight">歡迎來到北大獅子會系統 V7</h1>
+      <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight">歡迎來到北大獅子會系統</h1>
       <p class="mt-4 text-lg text-gray-600">
         <span v-if="authStore.loading">🔄 確認身分中...</span>
         <span v-else-if="authStore.user">已登入為: <span class="font-bold text-indigo-700">{{ authStore.user.displayName || '會員' }}</span></span>
