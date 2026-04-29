@@ -8,6 +8,8 @@ import './style.css'
 import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/auth'
+import liff from '@line/liff'
+import { getAdminLiffId } from './lib/liffConfig'
 
 const app = createApp(App)
 
@@ -24,14 +26,30 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
-// Initialize auth store before mounting
-const authStore = useAuthStore()
-authStore.init()
-
-// ✅ [新增] 全域錯誤捕揔器：避免元件陲十時白畫面
 app.config.errorHandler = (err, instance, info) => {
     console.error('[Admin Global Error]', err, '\nComponent:', instance, '\nInfo:', info);
-    // 可擴展為通知小表（目前以 console 輸出，安全降級）
 };
 
-app.mount('#app')
+const initApp = async () => {
+  const LIFF_ID = getAdminLiffId()
+  const allowLocalLiff = import.meta.env.VITE_LIFF_ALLOW_LOCAL === '1'
+  const isLocalHost = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
+  if (LIFF_ID && (!isLocalHost || allowLocalLiff)) {
+    try {
+      await liff.init({ liffId: LIFF_ID })
+      console.log('Admin LIFF init OK')
+    } catch (e) {
+      console.error('Admin LIFF init failed:', e)
+    }
+  }
+
+  const authStore = useAuthStore()
+  authStore.init()
+
+  app.mount('#app')
+  if (typeof document !== 'undefined') {
+    document.body.setAttribute('data-admin-mounted', '1')
+  }
+}
+
+void initApp()
