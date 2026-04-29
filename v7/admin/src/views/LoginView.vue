@@ -19,10 +19,10 @@
         {{ loading ? '驗證授權中...' : 'LINE 登入' }}
       </button>
       <p v-if="!liffId" class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-        尚未設定 LIFF ID。請在 LINE Developers 建立一支 <strong>Endpoint 為本後台網址</strong> 的 LIFF，並將 ID 寫入環境變數 <code class="bg-amber-100 px-1 rounded">VITE_ADMIN_LIFF_ID</code>（與前台 LIFF 分開）。
+        尚未設定 LIFF ID。請在 LINE Developers 建立一支 <strong>Endpoint 為本後台網址</strong> 的 LIFF，並將 ID 寫入環境變數 <code class="bg-amber-100 px-1 rounded">VITE_ADMIN_LIFF_ID</code>（與前台 LIFF 分開）。同一 Channel 的 LINE Login「Callback URL」也須包含登入完成後要導回的網址（見下方說明）。
       </p>
       <p v-else class="text-xs text-gray-500 leading-relaxed">
-        與會員前台相同流程：以 LINE 授權後由雲端函式換取 Firebase 登入。若 LIFF 仍綁在舊網址，請改為 Admin 專用 LIFF。
+        與會員前台相同流程：以 LINE 授權後由雲端函式換取 Firebase 登入。請在 LINE Developers 同一 Channel 的「Callback URL」加入與本頁一致的網址（預設為 <code class="bg-gray-100 px-1 rounded">{{ adminRedirectHint }}</code>，亦可設環境變數 <code class="bg-gray-100 px-1 rounded">VITE_ADMIN_LIFF_REDIRECT_URI</code> 與後台登記完全一致）。
       </p>
     </div>
 
@@ -63,14 +63,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useAuthStore, waitForAuth } from '../stores/auth';
 import { useRouter } from 'vue-router';
 import { signInWithCustomToken } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 import { auth, functions } from '../firebase';
 import liff from '@line/liff';
-import { getAdminLiffId } from '../lib/liffConfig';
+import { getAdminLiffId, getAdminLiffRedirectUri } from '../lib/liffConfig';
 
 const email = ref('');
 const password = ref('');
@@ -83,6 +83,20 @@ const authStore = useAuthStore();
 const router = useRouter();
 
 const liffId = getAdminLiffId();
+
+const adminRedirectHint = computed(() => {
+  const baked = String(import.meta.env.VITE_ADMIN_LIFF_REDIRECT_URI || '').trim();
+  if (baked) return baked;
+  const member = String(import.meta.env.VITE_LIFF_REDIRECT_URI || '').trim();
+  if (member && typeof window !== 'undefined') {
+    try {
+      if (new URL(member).origin === window.location.origin) return member;
+    } catch {
+      /* ignore */
+    }
+  }
+  return typeof window !== 'undefined' ? `${window.location.origin}/login` : '/login';
+});
 
 const afterAuthSuccess = async () => {
   if (!authStore.isAdmin) {
@@ -147,7 +161,7 @@ const loginWithLine = () => {
   }
   try {
     if (!liff.isLoggedIn()) {
-      const redirectUri = `${window.location.origin}/login`;
+      const redirectUri = getAdminLiffRedirectUri();
       liff.login({ redirectUri });
       return;
     }
@@ -156,7 +170,7 @@ const loginWithLine = () => {
       void executeLineFirebaseLogin(token);
     } else {
       liff.logout();
-      liff.login({ redirectUri: `${window.location.origin}/login` });
+      liff.login({ redirectUri: getAdminLiffRedirectUri() });
     }
   } catch (e: any) {
     errorMsg.value = 'LIFF 狀態異常：' + (e?.message || '請重新整理後再試。');
