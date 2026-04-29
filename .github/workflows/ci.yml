@@ -13,6 +13,10 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      # Used by Playwright e2e (and optional smoke scripts) to avoid hard-coded high-privilege credentials.
+      E2E_ADMIN_ACCOUNT: ${{ secrets.E2E_ADMIN_ACCOUNT }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
     strategy:
       matrix:
         node-version: [22.x]

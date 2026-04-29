@@ -5,12 +5,16 @@
  * Admin 登入依賴 Callable `adminLogin`（與 v7/functions/src/auth.ts 一致）。
  * 本機 DEV 會連 Functions Emulator（127.0.0.1:5003），請先啟動：
  *   firebase emulators:start --only auth,functions,firestore
- * 帳密可改環境變數：E2E_ADMIN_ACCOUNT、E2E_ADMIN_PASSWORD（預設 ADMIN / A83062951）
+ * 帳密可改環境變數：E2E_ADMIN_ACCOUNT、E2E_ADMIN_PASSWORD
  */
 import { test, expect } from '@playwright/test';
 
 const E2E_ADMIN_ACCOUNT = process.env.E2E_ADMIN_ACCOUNT ?? 'ADMIN';
-const E2E_ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'A83062951';
+const E2E_ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD;
+
+if (!E2E_ADMIN_PASSWORD) {
+  throw new Error('[mobile-nav.spec] Missing required env var: E2E_ADMIN_PASSWORD');
+}
 
 /** 等待 Firebase Auth 首次回調完成、主畫面（漢堡鈕）出現 */
 async function waitForAppShell(page: import('@playwright/test').Page) {
@@ -136,7 +140,10 @@ test.describe('Admin 視角測試', () => {
 
     const adminLink = panel.getByRole('link', { name: /管理後台/ });
     await expect(adminLink).toBeVisible();
-    await expect(adminLink).toHaveAttribute('href', /\/admin\//);
+    const href = await adminLink.getAttribute('href');
+    expect(href).toBeTruthy();
+    expect(href).toContain('refresh=1');
+    expect(href!.includes('/admin/') || href!.includes('north-lions-v6-admin')).toBeTruthy();
   });
 
   test('[情境 B-optional] 登入後手機選單顯示「登出」', async ({ page }) => {

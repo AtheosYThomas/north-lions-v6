@@ -11,7 +11,12 @@ const loginPath = process.env.ADMIN_LOGIN_PATH || '/login';
 const url = `${baseUrl.replace(/\/$/, '')}${loginPath.startsWith('/') ? '' : '/'}${loginPath}`;
 
 const account = process.env.E2E_ADMIN_ACCOUNT ?? 'ADMIN';
-const password = process.env.E2E_ADMIN_PASSWORD ?? 'A83062951';
+const password = process.env.E2E_ADMIN_PASSWORD;
+
+if (!password) {
+  console.error('[smoke_admin_system_login] Missing env var: E2E_ADMIN_PASSWORD');
+  process.exit(1);
+}
 
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage();

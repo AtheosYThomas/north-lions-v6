@@ -1,11 +1,30 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import axios from "axios";
+import { createAuditLog } from "./utils/audit";
+
+const ADMIN_SYSTEM_PASSWORD_SECRET = defineSecret("ADMIN_SYSTEM_PASSWORD");
+
+function getAdminSystemPassword(): string {
+  const fromEnv = process.env.ADMIN_SYSTEM_PASSWORD?.trim();
+  if (fromEnv) return fromEnv;
+
+  // Deployed environments should set the Secret Manager value.
+  // For local/dev, `process.env.ADMIN_SYSTEM_PASSWORD` is the fallback.
+  try {
+    const fromSecret = ADMIN_SYSTEM_PASSWORD_SECRET.value();
+    return typeof fromSecret === "string" ? fromSecret.trim() : String(fromSecret ?? "").trim();
+  } catch {
+    return "";
+  }
+}
 
 export const adminLogin = onCall(async (request) => {
   const db = admin.firestore();
   const { account, password } = request.data;
-  if (account === 'ADMIN' && password === 'A83062951') {
+  const expectedPassword = getAdminSystemPassword();
+  if (account === 'ADMIN' && expectedPassword && password === expectedPassword) {
     const uid = 'admin-system-account';
     const adminDoc = await db.collection('members').doc(uid).get();
     if (!adminDoc.exists) {
@@ -20,6 +39,12 @@ export const adminLogin = onCall(async (request) => {
       });
     }
     const token = await admin.auth().createCustomToken(uid);
+    await createAuditLog({
+      operatorUid: uid,
+      operatorName: '系統管理員',
+      action: 'ADMIN_PASSWORD_LOGIN',
+      meta: { account: 'ADMIN' }
+    });
     return { token };
   } else {
     throw new HttpsError('unauthenticated', 'Invalid admin credentials');
