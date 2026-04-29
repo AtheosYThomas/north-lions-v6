@@ -7,7 +7,8 @@
   "types": "./types/index.ts",
   "exports": {
     ".": "./types/index.ts",
-    "./stores/donationsLogic": "./stores/donationsLogic.ts"
+    "./stores/donationsLogic": "./stores/donationsLogic.ts",
+    "./managementAccess": "./managementAccess.ts"
   },
   "peerDependencies": {
     "firebase": "^12.0.0"

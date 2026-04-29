@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { doc, getDoc } from 'firebase/firestore';
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged, type User } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import type { Member } from 'shared';
+import { hasManagementAccess } from 'shared/managementAccess';
 
 // 與前台相同：首次 onAuthStateChanged 完成後一次性 resolve，供路由 await（不使用輪詢）
 let _authReadyResolve: () => void;
@@ -21,45 +22,45 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(true);
   const isReady = ref(false);
 
+  /** 依目前 Firebase User 載入 members/{uid}（供 onAuthStateChanged 與登入流程立即使用） */
+  async function hydrateFromFirebaseUser(firebaseUser: User | null) {
+    if (!firebaseUser) {
+      user.value = null;
+      isAuthenticated.value = false;
+      return;
+    }
+    if (firebaseUser.uid === 'dev-admin') {
+      user.value = {
+        uid: 'dev-admin',
+        email: 'dev-admin@example.com',
+        memberData: { name: '開發測試管理員', system: { role: 'Admin' } }
+      };
+      isAuthenticated.value = true;
+      return;
+    }
+    try {
+      const docRef = doc(db, 'members', firebaseUser.uid);
+      const memberSnap = await getDoc(docRef);
+      let memberData = null;
+      if (memberSnap.exists()) {
+        memberData = memberSnap.data() as Member;
+      }
+      user.value = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        memberData
+      };
+      isAuthenticated.value = true;
+    } catch (e) {
+      console.error('Failed to load admin profile', e);
+      user.value = null;
+      isAuthenticated.value = false;
+    }
+  }
+
   const init = () => {
     onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        if (firebaseUser.uid === 'dev-admin') {
-          user.value = {
-            uid: 'dev-admin',
-            email: 'dev-admin@example.com',
-            memberData: { name: '開發測試管理員', system: { role: 'Admin' } }
-          };
-          isAuthenticated.value = true;
-          loading.value = false;
-          isReady.value = true;
-          return;
-        }
-
-        try {
-          const docRef = doc(db, 'members', firebaseUser.uid);
-          const memberSnap = await getDoc(docRef);
-          
-          let memberData = null;
-          if (memberSnap.exists()) {
-            memberData = memberSnap.data() as Member;
-          }
-          
-          user.value = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            memberData
-          };
-          isAuthenticated.value = true;
-        } catch (e) {
-          console.error("Failed to load admin profile", e);
-          user.value = null;
-          isAuthenticated.value = false;
-        }
-      } else {
-        user.value = null;
-        isAuthenticated.value = false;
-      }
+      await hydrateFromFirebaseUser(firebaseUser);
       loading.value = false;
       isReady.value = true;
       if (!_authReadyResolved) {
@@ -70,22 +71,16 @@ export const useAuthStore = defineStore('auth', () => {
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
-      const cred = await signInWithEmailAndPassword(auth, email, pass);
-      return cred.user;
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    await hydrateFromFirebaseUser(cred.user);
+    return cred.user;
   };
 
   const isAdmin = computed(() => {
     if (!user.value) return false;
     if (user.value.uid === 'dev-admin') return true;
-
-    const sysRole = user.value.memberData?.system?.role;
-    const baseRole = user.value.memberData?.role;
-    const memberPosition = user.value.memberData?.position;
-
-    return String(sysRole).toLowerCase() === 'admin' || 
-           String(baseRole).toLowerCase() === 'admin' || 
-           user.value.email === 'admin@example.com' ||
-           (memberPosition && (memberPosition.includes('會長') || memberPosition.includes('秘書') || memberPosition.includes('財務')));
+    if (user.value.email === 'admin@example.com') return true;
+    return hasManagementAccess(user.value.memberData);
   });
 
   const logout = async () => {
@@ -96,5 +91,5 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated.value = false;
   };
 
-  return { user, isAuthenticated, loading, isReady, isAdmin, init, loginWithEmail, logout };
+  return { user, isAuthenticated, loading, isReady, isAdmin, init, loginWithEmail, logout, hydrateFromFirebaseUser };
 });
