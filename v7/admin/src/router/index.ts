@@ -65,14 +65,29 @@ router.onError((error, to) => {
   const message = String((error as any)?.message || error || '');
   const chunkLoadFailed =
     /Failed to fetch dynamically imported module/i.test(message) ||
-    /Importing a module script failed/i.test(message);
+    /Importing a module script failed/i.test(message) ||
+    /Loading chunk [\d]+ failed/i.test(message);
   if (!chunkLoadFailed || typeof window === 'undefined') return;
 
-  // Prevent infinite reload loops if the new build is unavailable.
+  // Prevent infinite reload loops, but still offer one hard-refresh fallback.
   const guardKey = `admin:chunk-reload:${to.fullPath}`;
-  if (window.sessionStorage.getItem(guardKey)) return;
-  window.sessionStorage.setItem(guardKey, '1');
-  window.location.replace(to.fullPath);
+  const didSoftReload = window.sessionStorage.getItem(guardKey) === '1';
+  if (!didSoftReload) {
+    window.sessionStorage.setItem(guardKey, '1');
+    window.location.replace(to.fullPath);
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  const didHardRefresh = url.searchParams.get('refresh') === '1';
+  if (!didHardRefresh) {
+    url.searchParams.set('refresh', '1');
+    window.location.replace(url.toString());
+    return;
+  }
+
+  // Last-resort fallback to stable root if both retries already happened.
+  window.location.replace('/');
 });
 
 router.beforeEach(async (to, _from, next) => {
