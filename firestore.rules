@@ -8,12 +8,14 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // ── isOfficer：與 v7/client/src/stores/auth.ts 的 isAdmin 完全對齊 ─────────
+    // ── isOfficer：與 v7/client、v7/admin、webhook memberProfile 管理權限對齊 ──
     // 1) uid === 'dev-admin'
     // 2) Firebase Auth token.email === 'admin@example.com'
     // 3) members/{uid}：system.role 或 role（字串，不分大小寫）為 admin
-    // 4) members/{uid}：position 字串含「會長」「秘書」「財務」之一
-    // 注意：不再讀取 users/{uid} 判斷幹部，因前端 isAdmin 未使用該集合。
+    // 4) members/{uid}：isAdmin == true（指定人員）
+    // 5) members/{uid}：title / position / organization.title / organization.role 含
+    //    「會長、秘書、財務、總管、聯絡」之一
+    // 注意：不再讀取 users/{uid} 判斷幹部。
 
     function memberDoc() {
       return get(/databases/$(database)/documents/members/$(request.auth.uid)).data;
@@ -27,17 +29,35 @@ service cloud.firestore {
           || ('role' in data && data.role is string && data.role.lower() == 'admin');
     }
 
+    function memberHasExplicitIsAdmin(data) {
+      return 'isAdmin' in data && data.isAdmin == true;
+    }
+
+    function memberTextMatchesManagementKeyword(text) {
+      return text is string
+          && (text.matches('.*會長.*')
+              || text.matches('.*秘書.*')
+              || text.matches('.*財務.*')
+              || text.matches('.*總管.*')
+              || text.matches('.*聯絡.*'));
+    }
+
     function memberHasOfficerPosition(data) {
-      return 'position' in data
-          && data.position is string
-          && (data.position.matches('.*會長.*')
-              || data.position.matches('.*秘書.*')
-              || data.position.matches('.*財務.*'));
+      return ('position' in data && data.position is string && memberTextMatchesManagementKeyword(data.position))
+          || ('title' in data && data.title is string && memberTextMatchesManagementKeyword(data.title))
+          || ('organization' in data && data.organization is map
+              && 'title' in data.organization && data.organization.title is string
+              && memberTextMatchesManagementKeyword(data.organization.title))
+          || ('organization' in data && data.organization is map
+              && 'role' in data.organization && data.organization.role is string
+              && memberTextMatchesManagementKeyword(data.organization.role));
     }
 
     function memberDocGrantsOfficer() {
       return exists(/databases/$(database)/documents/members/$(request.auth.uid))
-          && (memberHasAdminRole(memberDoc()) || memberHasOfficerPosition(memberDoc()));
+          && (memberHasExplicitIsAdmin(memberDoc())
+              || memberHasAdminRole(memberDoc())
+              || memberHasOfficerPosition(memberDoc()));
     }
 
     function authEmailIsExampleAdmin() {
@@ -93,11 +113,16 @@ service cloud.firestore {
       allow write: if isAuthenticated() && (request.auth.uid == memberId || isOfficer());
     }
 
-    // Registrations: anyone can create/read, officers manage, users can manage their own
+    // Registrations：僅本人或幹部可讀；建立時禁止冒用他人 memberId
     match /registrations/{regId} {
-      allow create: if isAuthenticated();
-      allow read: if isAuthenticated();
-      allow update, delete: if isOfficer() || (isAuthenticated() && resource.data.info.memberId == request.auth.uid);
+      allow create: if isAuthenticated() && (
+          request.resource.data.info.memberId == request.auth.uid
+          || isOfficer()
+      );
+      allow read: if isOfficer()
+          || (isAuthenticated() && resource.data.info.memberId == request.auth.uid);
+      allow update, delete: if isOfficer()
+          || (isAuthenticated() && resource.data.info.memberId == request.auth.uid);
     }
 
     // Donations: only officers can write, owners and officers can read
@@ -116,7 +141,15 @@ service cloud.firestore {
     match /billing_records/{recordId} {
       allow read: if isOfficer() || (isAuthenticated() && resource.data.memberId == request.auth.uid);
       allow create, delete: if isOfficer();
-      allow update: if isOfficer() || (isAuthenticated() && resource.data.memberId == request.auth.uid);
+      // 會員更新：禁止竄改歸戶／活動等關鍵欄位（避免水平越權改帳）
+      allow update: if isOfficer() || (
+        isAuthenticated()
+        && resource.data.memberId == request.auth.uid
+        && request.resource.data.memberId == resource.data.memberId
+        && (!('campaignId' in resource.data)
+            || request.resource.data.campaignId == resource.data.campaignId)
+        && request.resource.data.billing == resource.data.billing
+      );
     }
 
     // Notifications: users can read their own or broadcast notifications; only officers can write
@@ -134,6 +167,16 @@ service cloud.firestore {
     match /message_logs/{logId} {
       allow read: if isOfficer();
       allow write: if false;
+    }
+
+    // 管理行為稽核：僅幹部可建立與讀取；禁止更新／刪除以保真實性
+    match /admin_audit_logs/{logId} {
+      allow create: if isOfficer()
+          && request.resource.data.operatorUid == request.auth.uid
+          && request.resource.data.action is string
+          && 'timestamp' in request.resource.data;
+      allow read: if isOfficer();
+      allow update, delete: if false;
     }
   }
 }

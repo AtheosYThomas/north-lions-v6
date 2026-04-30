@@ -73,7 +73,7 @@ import { httpsCallable } from 'firebase/functions';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { functions, db } from '../firebase';
 import { useEventsStore } from '../stores/events';
-import { useAuthStore } from '../stores/auth';
+import { useAuthStore, waitForAuth } from '../stores/auth';
 
 const eventsStore = useEventsStore();
 const authStore = useAuthStore();
@@ -90,6 +90,11 @@ const regCountLoading = ref(true);
 const fetchRegCounts = async () => {
   regCountLoading.value = true;
   try {
+    // 收緊 registrations 讀取權限後：只有幹部能一次讀全表做統計；一般會員改為不顯示跨人報名人數
+    if (!authStore.isAdmin) {
+      regCountMap.value = {};
+      return;
+    }
     const q = query(
       collection(db, 'registrations'),
       where('status.status', '!=', '已取消')
@@ -118,6 +123,7 @@ const isNearFull = (event: any): boolean => {
 };
 
 onMounted(async () => {
+  await waitForAuth();
   await eventsStore.fetchEvents();
   await fetchRegCounts();
 });

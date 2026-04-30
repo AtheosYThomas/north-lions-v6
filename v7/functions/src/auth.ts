@@ -52,6 +52,11 @@ export const adminLogin = onCall(async (request) => {
 });
 
 export const testUserLogin = onCall(async (request) => {
+  // 僅允許在本機 Emulator 使用；正式環境必須完全拒絕（避免 Callable 測試後門）
+  if (process.env.FUNCTIONS_EMULATOR !== 'true') {
+    throw new HttpsError('permission-denied', 'testUserLogin is only available in the Functions emulator.');
+  }
+
   const db = admin.firestore();
   const uid = 'test-unit-user';
   // Simulate what LINE login creates

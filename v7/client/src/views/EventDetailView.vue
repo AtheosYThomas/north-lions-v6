@@ -344,7 +344,10 @@
 
       <!-- 已報名清單 (共用 View) -->
       <div class="flex justify-between items-center mb-3">
-        <h4 class="font-semibold text-gray-800">已報名名單 (共 {{ registrations.length }} 筆)</h4>
+        <div>
+          <h4 class="font-semibold text-gray-800">已報名名單 (共 {{ registrations.length }} 筆)</h4>
+          <p v-if="!authStore.isAdmin" class="text-xs text-gray-500 mt-1">一般會員僅能看到自己的報名紀錄；完整名單僅限幹部檢視。</p>
+        </div>
         <button v-if="authStore.isAdmin" @click="exportRegistrationsCsv" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-4 rounded shadow-sm transition text-sm flex items-center gap-1">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
           匯出 CSV
@@ -382,7 +385,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useEventsStore } from '../stores/events';
 import { useRegistrationsStore } from '../stores/registrations';
 import { useMembersStore } from '../stores/members';
-import { useAuthStore } from '../stores/auth';
+import { useAuthStore, waitForAuth } from '../stores/auth';
 import type { Event, Registration } from 'shared';
 import QrcodeVue from 'qrcode.vue';
 import confetti from 'canvas-confetti';
@@ -447,7 +450,19 @@ watch(myRegistration, (newVal) => {
   }
 }, { immediate: true });
 
+const loadRegistrationsForCurrentEvent = async () => {
+  if (!event.value) return;
+  const id = event.value.id;
+  if (authStore.isAdmin) {
+    registrations.value = await regStore.fetchRegistrationsByEvent(id);
+    return;
+  }
+  const uid = authStore.user?.memberId || authStore.user?.uid;
+  registrations.value = uid ? await regStore.fetchRegistrationsByEventForMember(id, uid) : [];
+};
+
 onMounted(async () => {
+  await waitForAuth();
   // 載入會員字典以供反查姓名
   if (membersStore.members.length === 0) {
     await membersStore.fetchMembers();
@@ -458,8 +473,7 @@ onMounted(async () => {
     const data = await eventsStore.getEventById(id);
     if (data) {
       event.value = data;
-      // Fetch related registrations
-      registrations.value = await regStore.fetchRegistrationsByEvent(id);
+      await loadRegistrationsForCurrentEvent();
     }
   }
   loading.value = false;
@@ -537,7 +551,7 @@ const handleRegister = async () => {
   registering.value = true;
   try {
     await regStore.createRegistration(event.value.id, currentUserId, regAdults.value, regChildren.value);
-    registrations.value = await regStore.fetchRegistrationsByEvent(event.value.id);
+    await loadRegistrationsForCurrentEvent();
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
     alert('✅ 報名成功！');
   } catch (err: any) {
@@ -559,7 +573,7 @@ const handleUpdateReg = async () => {
   try {
     const success = await regStore.updateRegistrationCounts(myRegistration.value.id, editAdults.value, editChildren.value);
     if (success) {
-      registrations.value = await regStore.fetchRegistrationsByEvent(event.value.id);
+      await loadRegistrationsForCurrentEvent();
       alert('活動設定已更新並儲存！');
     } else {
       alert('更新失敗，請檢查網路連線。');
@@ -575,7 +589,7 @@ const cancelReg = async (regId: string) => {
   if (confirm('確定要取消此筆報名資格嗎？')) {
     const success = await regStore.updateRegistrationStatus(regId, '已取消');
     if (success) {
-      if (event.value) registrations.value = await regStore.fetchRegistrationsByEvent(event.value.id);
+      if (event.value) await loadRegistrationsForCurrentEvent();
     } else {
       alert('取消失敗，請檢查權限與連線。');
     }
@@ -616,7 +630,7 @@ const handleUploadReceipt = async () => {
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
     alert('✅ 送出成功！憑證已上傳，請靜候財務審核。');
     if (event.value) {
-      registrations.value = await regStore.fetchRegistrationsByEvent(event.value.id);
+      await loadRegistrationsForCurrentEvent();
     }
   } catch (e: any) {
     uploadError.value = e.message || '上傳發生非預期錯誤，請稍後再試。';
@@ -640,7 +654,7 @@ const handleSubmitManual = async () => {
   try {
     await regStore.submitManualPayment(myRegistration.value.id, f);
     alert('繳費資料已成功送出！財務人員將盡快核對。');
-    if (event.value) registrations.value = await regStore.fetchRegistrationsByEvent(event.value.id);
+    if (event.value) await loadRegistrationsForCurrentEvent();
   } catch (e: any) {
     alert(e.message || '提交失敗，請稍後再試');
   } finally {

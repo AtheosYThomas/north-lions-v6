@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { collection, getDocs, doc, query, where, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase';
+import { db, storage, auth } from '../firebase';
 import type { Registration } from 'shared';
 
 export const useRegistrationsStore = defineStore('registrations', () => {
@@ -10,7 +10,7 @@ export const useRegistrationsStore = defineStore('registrations', () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // 取得特定活動的所有報名紀錄 (Admin/一般會員共用)
+  // 取得特定活動的所有報名紀錄（僅幹部／管理端；一般會員請用 fetchRegistrationsByEventForMember）
   const fetchRegistrationsByEvent = async (eventId: string) => {
     loading.value = true;
     error.value = null;
@@ -21,6 +21,29 @@ export const useRegistrationsStore = defineStore('registrations', () => {
       return registrations.value;
     } catch (e: any) {
       console.error('[Firebase Error] fetchRegistrationsByEvent 發生錯誤:', e);
+      error.value = e.message;
+      return [];
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  /** 一般會員：僅能讀取自己在某活動下的報名（符合 Firestore rules） */
+  const fetchRegistrationsByEventForMember = async (eventId: string, memberId: string) => {
+    loading.value = true;
+    error.value = null;
+    try {
+      const q = query(
+        collection(db, 'registrations'),
+        where('info.eventId', '==', eventId),
+        where('info.memberId', '==', memberId),
+      );
+      const snapshot = await getDocs(q);
+      const rows = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Registration) }));
+      registrations.value = rows;
+      return rows;
+    } catch (e: any) {
+      console.error('[Firebase Error] fetchRegistrationsByEventForMember:', e);
       error.value = e.message;
       return [];
     } finally {
@@ -181,9 +204,11 @@ export const useRegistrationsStore = defineStore('registrations', () => {
 
   const uploadPaymentReceipt = async (regId: string, file: File) => {
     try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) throw new Error('尚未登入，無法上傳憑證');
       const fileExt = file.name.split('.').pop() || '';
       const uniqueFileName = `${Date.now()}_${regId.substring(0,8)}.${fileExt}`;
-      const fileRef = storageRef(storage, `receipts/${uniqueFileName}`);
+      const fileRef = storageRef(storage, `members/${uid}/payment_receipts/${uniqueFileName}`);
       
       await uploadBytes(fileRef, file, {
         customMetadata: { regId }
@@ -219,6 +244,7 @@ export const useRegistrationsStore = defineStore('registrations', () => {
     loading, 
     error, 
     fetchRegistrationsByEvent, 
+    fetchRegistrationsByEventForMember,
     fetchMyRegistrations, 
     createRegistration, 
     updateRegistrationStatus,
