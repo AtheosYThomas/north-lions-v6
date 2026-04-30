@@ -13,14 +13,14 @@
   <!-- ── Auth 初始化完成：渲染正式 UI ────────────────────────────────────── -->
   <div v-else class="min-h-screen bg-gray-50 flex flex-col">
     <!-- Navbar -->
-    <header class="bg-indigo-700 text-white shadow-md relative z-50">
+    <header ref="headerRef" class="bg-indigo-700 text-white shadow-md relative z-50">
       <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
         <router-link to="/" class="text-xl font-bold tracking-tight hover:text-gray-200 shrink-0">北大獅子會系統</router-link>
         
         <div class="flex items-center gap-2 md:gap-4">
           <!-- Notification Bell -->
-          <div v-if="authStore.isAuthenticated" class="relative">
-            <button @click="toggleNotifications" class="relative p-2 rounded-full text-indigo-200 hover:text-white focus:outline-none transition-colors">
+          <div v-if="authStore.isAuthenticated" ref="notificationRef" class="relative">
+            <button @click.stop="toggleNotifications" class="relative p-2 rounded-full text-indigo-200 hover:text-white focus:outline-none transition-colors">
               <span class="sr-only">View notifications</span>
               <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
@@ -68,7 +68,7 @@
             class="md:hidden text-indigo-200 hover:text-white p-2 focus:outline-none"
             aria-label="主選單"
             :aria-expanded="showMobileMenu"
-            @click="showMobileMenu = !showMobileMenu"
+            @click.stop="showMobileMenu = !showMobileMenu"
           >
             <svg v-if="!showMobileMenu" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
             <svg v-else class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -82,7 +82,12 @@
               :to="item.path"
               :class="['hover:text-gray-200', item.emphasized ? 'text-orange-200 font-bold' : '']"
             >{{ item.name }}</router-link>
-            <a v-if="authStore.isAdmin" href="/admin/?refresh=1" class="text-indigo-200 hover:text-white font-bold ml-2">⚙️ 管理後台</a>
+            <a
+              v-if="authStore.isAdmin"
+              :href="adminConsoleHref"
+              class="text-indigo-200 hover:text-white font-bold ml-2"
+              rel="noopener noreferrer"
+            >⚙️ 管理後台</a>
 
             <button v-if="authStore.isAuthenticated" @click="handleLogout" class="bg-white/20 hover:bg-white/30 rounded-md px-3 py-1 transition-colors font-medium ml-2">登出</button>
             <router-link v-else to="/login" class="bg-white/20 hover:bg-white/30 rounded-md px-3 py-1 transition-colors font-medium ml-2">登入</router-link>
@@ -103,6 +108,7 @@
           v-if="showMobileMenu"
           data-testid="mobile-nav-panel"
           class="md:hidden absolute top-full left-0 w-full bg-indigo-800 shadow-xl border-t border-indigo-700 flex flex-col z-[45]"
+          @click.stop
         >
           <router-link
             :to="homeNavItem.path"
@@ -119,7 +125,12 @@
                 :class="item.emphasized ? 'font-bold text-orange-200' : ''"
                 @click="closeMobileMenu"
               >{{ item.icon }} {{ item.name }}</router-link>
-              <a v-if="authStore.isAdmin" href="/admin/?refresh=1" class="block px-5 py-4 text-base font-bold text-indigo-300 hover:bg-indigo-700 border-b border-indigo-700/50">⚙️ 管理後台</a>
+              <a
+                v-if="authStore.isAdmin"
+                :href="adminConsoleHref"
+                class="block px-5 py-4 text-base font-bold text-indigo-300 hover:bg-indigo-700 border-b border-indigo-700/50"
+                rel="noopener noreferrer"
+              >⚙️ 管理後台</a>
               <button type="button" class="block w-full text-left px-5 py-4 text-base font-medium hover:bg-indigo-700 text-red-200" @click="closeMobileMenu(); handleLogout()">🚪 登出</button>
             </div>
           </template>
@@ -146,6 +157,9 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from './stores/auth';
 import { useNotificationsStore } from './stores/notifications';
+import { getAdminConsoleEntryHref } from './lib/adminConsoleUrl';
+
+const adminConsoleHref = getAdminConsoleEntryHref();
 
 /** 主導覽列單一資料源（桌面／手機共用；首頁固定為陣列第一筆 path === '/'） */
 type AppNavItem = {
@@ -175,6 +189,8 @@ const router = useRouter();
 
 const showNotifications = ref(false);
 const showMobileMenu = ref(false);
+const headerRef = ref<HTMLElement | null>(null);
+const notificationRef = ref<HTMLElement | null>(null);
 
 const desktopNavItems = computed(() =>
   navItems.filter((item) => !item.requiresAuth || authStore.isAuthenticated)
@@ -192,11 +208,11 @@ const toggleNotifications = () => {
 
 // 點擊外部關閉小鈴鐺或手機選單
 const closeNotifications = (e: MouseEvent) => {
-  const target = e.target as HTMLElement;
-  if (showNotifications.value && !target.closest('.relative')) {
+  const target = e.target as Node | null;
+  if (showNotifications.value && notificationRef.value && target && !notificationRef.value.contains(target)) {
     showNotifications.value = false;
   }
-  if (showMobileMenu.value && !target.closest('header')) {
+  if (showMobileMenu.value && headerRef.value && target && !headerRef.value.contains(target)) {
     showMobileMenu.value = false;
   }
 };
