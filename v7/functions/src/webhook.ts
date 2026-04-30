@@ -493,6 +493,23 @@ async function handlePostbackEvent(event: line.PostbackEvent, db: admin.firestor
   const action = params.get('action');
   logger.log(`[LINE Postback] userId: ${event.source.userId}, data: ${data}`);
 
+  // Rich menu postback "menu1/menu2" should open the Flex dashboard menu.
+  if ((action === 'menu1' || action === 'menu2') && event.source.type === 'user' && event.replyToken) {
+    const lineUserId = event.source.userId;
+    const memberProfile = await resolveMemberProfileByLineUserId(db, lineUserId);
+    await handleTextCommand({
+      db,
+      event: event as unknown as line.MessageEvent,
+      content: '選單',
+      lineUserId,
+      replyToken: event.replyToken,
+      memberProfile,
+      fetchEventsByIds,
+      logDetailedError
+    });
+    return;
+  }
+
   if (action === 'bind_receipt') {
     await handleBindReceiptPostback({
       db,
