@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import type { Member } from 'shared';
+import { hasManagementAccess } from 'shared/managementAccess';
 
 // ─── Auth Ready Promise ───────────────────────────────────────────────────────
 // 在 store 模組層級建立一次性 Promise，讓 router.beforeEach 可以 await 等待
@@ -17,7 +18,7 @@ const _authReadyPromise = new Promise<void>((resolve) => {
 export const waitForAuth = () => _authReadyPromise;
 
 export const useAuthStore = defineStore('auth', () => {
-  const cachedUser = sessionStorage.getItem('devUser');
+  const cachedUser = sessionStorage.getItem('authUser');
   const user = ref<any>(cachedUser ? JSON.parse(cachedUser) : null);
   const isAuthenticated = ref(!!user.value);
   const loading = ref(true);
@@ -28,24 +29,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!firebaseUser) {
       user.value = null;
       isAuthenticated.value = false;
-      sessionStorage.removeItem('devUser');
-      return;
-    }
-
-    // 如果是開發測試帳號，直接模擬具備管理員權限的會員
-    if (firebaseUser.uid === 'dev-admin') {
-      const devProfile = {
-        uid: 'dev-admin',
-        displayName: firebaseUser.displayName || '開發測試管理員',
-        memberId: 'DEV_ADMIN_ID',
-        memberData: {
-          name: '開發測試管理員',
-          system: { role: 'Admin' }
-        }
-      };
-      user.value = devProfile;
-      isAuthenticated.value = true;
-      sessionStorage.setItem('devUser', JSON.stringify(devProfile));
+      sessionStorage.removeItem('authUser');
       return;
     }
 
@@ -69,11 +53,13 @@ export const useAuthStore = defineStore('auth', () => {
         memberData: memberData
       };
       isAuthenticated.value = true;
+      sessionStorage.setItem('authUser', JSON.stringify(user.value));
     } catch (err) {
       console.error('Failed to bind Member profile:', err);
       // Fallback：至少保留基本登入狀態
       user.value = { uid: firebaseUser.uid, displayName: firebaseUser.displayName };
       isAuthenticated.value = true;
+      sessionStorage.setItem('authUser', JSON.stringify(user.value));
     }
   }
 
@@ -99,16 +85,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAdmin = computed(() => {
     if (!user.value) return false;
-    if (user.value.uid === 'dev-admin') return true;
-
-    const sysRole = user.value.memberData?.system?.role;
-    const baseRole = user.value.memberData?.role;
-    const memberPosition = user.value.memberData?.position;
-
-    return String(sysRole).toLowerCase() === 'admin' || 
-           String(baseRole).toLowerCase() === 'admin' || 
-           user.value.email === 'admin@example.com' ||
-           (memberPosition && (memberPosition.includes('會長') || memberPosition.includes('秘書') || memberPosition.includes('財務')));
+    return hasManagementAccess(user.value.memberData);
   });
 
   const isPendingMember = computed(() => {
@@ -120,7 +97,7 @@ export const useAuthStore = defineStore('auth', () => {
     // 先清除本地狀態
     user.value = null;
     isAuthenticated.value = false;
-    sessionStorage.removeItem('devUser');
+    sessionStorage.removeItem('authUser');
     // 注意：isReady 不重置 —— 它代表「Auth 系統已初始化過」，登出後依然成立。
     // 重置 isReady 會讓 waitForAuth() 的 Promise 永遠無法再 resolve，造成 Spinner 卡死。
     // 呼叫 Firebase signOut()，正確觸發 onAuthStateChanged(null) 以同步後端狀態

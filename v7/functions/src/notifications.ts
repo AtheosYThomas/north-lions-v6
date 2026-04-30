@@ -3,6 +3,8 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { broadcastMessage, LineMessage } from "./line";
 import type { Announcement, Event } from "shared";
+import { hasManagementAccess } from "shared/managementAccess";
+import { createAuditLog } from "./utils/audit";
 
 const LIFF_URL = process.env.VITE_LIFF_URL || 'https://liff.line.me/YOUR_LIFF_ID'; // Ensure this points to the right LIFF
 
@@ -90,11 +92,10 @@ export const manualPushAnnouncement = onCall(async (request) => {
 
     const db = admin.firestore();
     const memberDoc = await db.collection("members").doc(request.auth.uid).get();
-    const isDevAdmin = request.auth.uid === 'dev-admin';
-    const isSystemAdmin = memberDoc.exists && memberDoc.data()?.system?.role === 'Admin';
-    const isBaseAdmin = memberDoc.exists && memberDoc.data()?.role === 'Admin';
-    
-    if (!isDevAdmin && !isSystemAdmin && !isBaseAdmin) {
+    const memberData = memberDoc.exists ? memberDoc.data() : null;
+    const allowed = hasManagementAccess(memberData);
+
+    if (!allowed) {
         throw new HttpsError("permission-denied", "Only administrators can trigger manual pushes.");
     }
 
@@ -107,7 +108,15 @@ export const manualPushAnnouncement = onCall(async (request) => {
     const data = docSnap.data() as Announcement;
     const flexMsg = buildAnnouncementFlexMessage(announcementId, data);
     await broadcastMessage([flexMsg]);
-    
+
+    const opName = String(memberData?.name || request.auth.token?.name || '');
+    await createAuditLog({
+      operatorUid: request.auth.uid,
+      operatorName: opName,
+      action: 'MANUAL_PUSH_ANNOUNCEMENT',
+      target: announcementId
+    });
+
     return { success: true, message: `Successfully pushed announcement ${announcementId}` };
 });
 
@@ -210,13 +219,10 @@ export const manualPushEvent = onCall(async (request) => {
     }
     const db = admin.firestore();
     const memberDoc = await db.collection("members").doc(request.auth.uid).get();
-    
-    // We assume dev-admin or actual admin check
-    const isDevAdmin = request.auth.uid === 'dev-admin';
-    const isSystemAdmin = memberDoc.exists && memberDoc.data()?.system?.role === 'Admin';
-    const isBaseAdmin = memberDoc.exists && memberDoc.data()?.role === 'Admin';
-    
-    if (!isDevAdmin && !isSystemAdmin && !isBaseAdmin) {
+    const memberData = memberDoc.exists ? memberDoc.data() : null;
+    const allowed = hasManagementAccess(memberData);
+
+    if (!allowed) {
         throw new HttpsError("permission-denied", "Only administrators can trigger manual pushes.");
     }
 
@@ -236,6 +242,14 @@ export const manualPushEvent = onCall(async (request) => {
     // 3. Construct and Send Message
     const flexMsg = buildEventFlexMessage(eventId, eventData);
     await broadcastMessage([flexMsg]);
-    
+
+    const opName = String(memberData?.name || request.auth.token?.name || '');
+    await createAuditLog({
+      operatorUid: request.auth.uid,
+      operatorName: opName,
+      action: 'MANUAL_PUSH_EVENT',
+      target: eventId
+    });
+
     return { success: true, message: `Successfully pushed event ${eventId}` };
 });

@@ -21,7 +21,9 @@ const OFFICIAL_UID     = 'uid-official';
 const OFFICIAL_UID_B   = 'uid-official-b';   // 第二位正式會員，用於越權測試
 const PENDING_UID      = 'uid-pending';
 const TREASURER_UID    = 'uid-treasurer';    // 職稱含「財務」— 與前端 isAdmin 職稱規則對齊
-const EMAIL_ADMIN_UID  = 'uid-email-admin';  // token.email === admin@example.com，無幹部 role
+const MANAGER_UID      = 'uid-manager';    // organization.title 含「總管」
+const ISADMIN_UID      = 'uid-isadmin-flag'; // 僅 isAdmin: true
+const EMAIL_ADMIN_UID  = 'uid-email-admin';  // token.email 僅供測試「不應再被當作 admin 後門」
 // 匿名路人不需要 UID
 
 describe('🛡️ Firestore Security Rules 攻防測試', () => {
@@ -88,7 +90,22 @@ describe('🛡️ Firestore Security Rules 攻防測試', () => {
         system: { role: 'Member' }
       });
 
-      // 僅以 Auth email 對齊 admin@example.com（members 無 admin role）
+      await db.collection('members').doc(MANAGER_UID).set({
+        name: '活動總管',
+        organization: { role: 'Member', title: '活動總管' },
+        status: { membershipType: '正會員' },
+        system: { role: 'Member' }
+      });
+
+      await db.collection('members').doc(ISADMIN_UID).set({
+        name: '指定管理員',
+        isAdmin: true,
+        organization: { role: '', title: '' },
+        status: { membershipType: '正會員' },
+        system: { role: 'Member' }
+      });
+
+      // 僅有 email，不具備 members admin role / isAdmin / custom claim
       await db.collection('members').doc(EMAIL_ADMIN_UID).set({
         name: '信箱管理員',
         status: { membershipType: '正會員' },
@@ -115,6 +132,13 @@ describe('🛡️ Firestore Security Rules 攻防測試', () => {
       await db.collection('announcements').doc('ann-1').set({
         title: '測試公告',
         content: 'Hello Lions'
+      });
+
+      await db.collection('message_logs').doc('log-1').set({
+        lineUserId: 'line-test',
+        text: '測試訊息',
+        role: 'user',
+        category: 'general'
       });
     });
   });
@@ -373,21 +397,78 @@ describe('🛡️ Firestore Security Rules 攻防測試', () => {
       );
     });
 
-    it('[D-10] dev-admin uid 無 members 文件仍寫入 /announcements → 必須放行', async () => {
+    it('[D-10] dev-admin uid 無 members 文件仍寫入 /announcements → 必須被阻擋（已移除後門）', async () => {
       const dev = testEnv.authenticatedContext('dev-admin');
-      await assertSucceeds(
+      await assertFails(
         dev.firestore().collection('announcements').add({ title: 'dev seed', content: 'x' })
       );
     });
 
-    it('[D-11] token.email 為 admin@example.com 寫入 /donations → 必須放行', async () => {
+    it('[D-11] token.email 為 admin@example.com 寫入 /donations → 必須被阻擋（已移除後門）', async () => {
       const ctx = testEnv.authenticatedContext(EMAIL_ADMIN_UID, { email: 'admin@example.com' });
-      await assertSucceeds(
+      await assertFails(
         ctx.firestore().collection('donations').add({
           memberId: OFFICIAL_UID,
           amount: 500,
           category: '常年會費',
           audit: { status: 'approved' }
+        })
+      );
+    });
+
+    it('[D-12] 職稱含「總管」讀取 /message_logs → 必須放行', async () => {
+      const ctx = testEnv.authenticatedContext(MANAGER_UID);
+      await assertSucceeds(
+        ctx.firestore().collection('message_logs').doc('log-1').get()
+      );
+    });
+
+    it('[D-13] isAdmin 標記會員讀取 /message_logs → 必須放行', async () => {
+      const ctx = testEnv.authenticatedContext(ISADMIN_UID);
+      await assertSucceeds(
+        ctx.firestore().collection('message_logs').doc('log-1').get()
+      );
+    });
+
+    it('[D-14] 一般正式會員讀取 /message_logs → 必須被阻擋', async () => {
+      const ctx = testEnv.authenticatedContext(OFFICIAL_UID);
+      await assertFails(
+        ctx.firestore().collection('message_logs').doc('log-1').get()
+      );
+    });
+
+    it('[D-15] 財務幹部建立 /admin_audit_logs（operatorUid 為本人）→ 必須放行', async () => {
+      const ctx = testEnv.authenticatedContext(TREASURER_UID);
+      await assertSucceeds(
+        ctx.firestore().collection('admin_audit_logs').add({
+          operatorUid: TREASURER_UID,
+          action: 'TEST_AUDIT_CREATE',
+          timestamp: new Date()
+        })
+      );
+    });
+
+    it('[D-16] 財務幹部更新 /admin_audit_logs → 必須被阻擋', async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection('admin_audit_logs').doc('audit-fixed').set({
+          operatorUid: TREASURER_UID,
+          action: 'SEED',
+          timestamp: new Date()
+        });
+      });
+      const ctx = testEnv.authenticatedContext(TREASURER_UID);
+      await assertFails(
+        ctx.firestore().collection('admin_audit_logs').doc('audit-fixed').update({ action: 'TAMPER' })
+      );
+    });
+
+    it('[D-17] 一般正式會員建立 /admin_audit_logs → 必須被阻擋', async () => {
+      const ctx = testEnv.authenticatedContext(OFFICIAL_UID);
+      await assertFails(
+        ctx.firestore().collection('admin_audit_logs').add({
+          operatorUid: OFFICIAL_UID,
+          action: 'FAKE_AUDIT_BY_MEMBER',
+          timestamp: new Date()
         })
       );
     });

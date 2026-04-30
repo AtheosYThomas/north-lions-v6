@@ -29,15 +29,6 @@ export const useAuthStore = defineStore('auth', () => {
       isAuthenticated.value = false;
       return;
     }
-    if (firebaseUser.uid === 'dev-admin') {
-      user.value = {
-        uid: 'dev-admin',
-        email: 'dev-admin@example.com',
-        memberData: { name: '開發測試管理員', system: { role: 'Admin' } }
-      };
-      isAuthenticated.value = true;
-      return;
-    }
     try {
       const docRef = doc(db, 'members', firebaseUser.uid);
       const memberSnap = await getDoc(docRef);
@@ -78,8 +69,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAdmin = computed(() => {
     if (!user.value) return false;
-    if (user.value.uid === 'dev-admin') return true;
-    if (user.value.email === 'admin@example.com') return true;
     return hasManagementAccess(user.value.memberData);
   });
 

@@ -9,11 +9,10 @@ service cloud.firestore {
     }
 
     // ── isOfficer：與 v7/client、v7/admin、webhook memberProfile 管理權限對齊 ──
-    // 1) uid === 'dev-admin'
-    // 2) Firebase Auth token.email === 'admin@example.com'
-    // 3) members/{uid}：system.role 或 role（字串，不分大小寫）為 admin
-    // 4) members/{uid}：isAdmin == true（指定人員）
-    // 5) members/{uid}：title / position / organization.title / organization.role 含
+    // 1) Firebase Auth custom claim: admin == true
+    // 2) members/{uid}：system.role 或 role（字串，不分大小寫）為 admin
+    // 3) members/{uid}：isAdmin == true（指定人員）
+    // 4) members/{uid}：title / position / organization.title / organization.role 含
     //    「會長、秘書、財務、總管、聯絡」之一
     // 注意：不再讀取 users/{uid} 判斷幹部。
 
@@ -60,16 +59,14 @@ service cloud.firestore {
               || memberHasOfficerPosition(memberDoc()));
     }
 
-    function authEmailIsExampleAdmin() {
-      return 'email' in request.auth.token
-          && request.auth.token.email is string
-          && request.auth.token.email == 'admin@example.com';
+    function authHasAdminClaim() {
+      return 'admin' in request.auth.token
+          && request.auth.token.admin == true;
     }
 
     function isOfficer() {
       return isAuthenticated() && (
-        request.auth.uid == 'dev-admin' ||
-        authEmailIsExampleAdmin() ||
+        authHasAdminClaim() ||
         memberDocGrantsOfficer()
       );
     }
